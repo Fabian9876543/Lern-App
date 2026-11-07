@@ -1,5 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { getSettings } from "../settings";
+import { getSettings } from "../../settings";
 
 export class MissingApiKeyError extends Error {
   constructor() {

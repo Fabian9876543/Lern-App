@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { normalizeImage, blobToDataUrl } from "../lib/files";
+import { normalizeImage } from "../lib/files";
+import { repo } from "../store/store";
 import type { AnswerResponse, Question } from "../types";
 import Markdown from "./Markdown";
 
@@ -131,14 +132,18 @@ function FreeTextInput({
   disabled: boolean;
 }) {
   const [imageError, setImageError] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
 
   async function addImage(file: File) {
     setImageError(null);
+    setUploading(true);
     try {
       const blob = await normalizeImage(file, 1600, 900_000);
-      onChange({ ...response, image: await blobToDataUrl(blob) });
+      onChange({ ...response, image: await repo.storeAnswerImage(blob) });
     } catch (e) {
       setImageError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setUploading(false);
     }
   }
 
@@ -165,7 +170,7 @@ function FreeTextInput({
       ) : (
         !disabled && (
           <label className="btn btn-ghost btn-sm file-btn">
-            📷 Foto der handschriftlichen Lösung anhängen
+            {uploading ? "Foto wird gespeichert …" : "📷 Foto der handschriftlichen Lösung anhängen"}
             <input
               type="file"
               accept="image/*"

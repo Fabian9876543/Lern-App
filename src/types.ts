@@ -15,8 +15,10 @@ export interface Material {
   kind: MaterialKind;
   mimeType: string;
   role: MaterialRole;
-  /** Binärdaten (PDF / Bild). Bei Text-Materialien leer. */
+  /** Binärdaten (PDF / Bild) – nur in der Web-Version (IndexedDB). */
   blob?: Blob;
+  /** Verweis auf die gespeicherte Datei – nur in der claude.ai-Version. */
+  assetId?: string;
   /** Inhalt bei Text-Materialien. */
   text?: string;
   size: number;
@@ -92,7 +94,7 @@ export interface AnswerResponse {
   selected?: number[];
   text?: string;
   number?: string;
-  /** Foto einer handschriftlichen Lösung (data-URL, JPEG). */
+  /** Foto einer handschriftlichen Lösung (data-URL oder Datei-URL). */
   image?: string;
 }
 

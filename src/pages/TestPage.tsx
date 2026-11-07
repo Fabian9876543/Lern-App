@@ -1,33 +1,26 @@
-import { useLiveQuery } from "dexie-react-hooks";
+import platform from "@platform-impl";
 import { useState } from "react";
-import { describeError } from "../ai/client";
-import { generateTest } from "../ai/generateTest";
 import { describeCorrectAnswer } from "../ai/normalize";
+import { confirmDialog, promptDialog } from "../components/Dialogs";
 import Markdown from "../components/Markdown";
 import QuestionEditor from "../components/QuestionEditor";
 import QuestionMeta from "../components/QuestionMeta";
-import { db, deleteTest, newId } from "../db";
 import { formatDate, startAttempt, summarize } from "../lib/attempts";
+import { newId } from "../lib/ids";
 import { navigate } from "../router";
-import type { AttemptMode, Material, Question } from "../types";
+import { repo, useStore } from "../store/store";
+import type { AttemptMode, Question } from "../types";
 
 export default function TestPage({ testId }: { testId: string }) {
-  const test = useLiveQuery(async () => (await db.tests.get(testId)) ?? null, [testId]);
-  const attempts = useLiveQuery(
-    () => db.attempts.where("testId").equals(testId).reverse().sortBy("startedAt"),
-    [testId],
-  );
-  const materials = useLiveQuery(async () => {
-    const t = await db.tests.get(testId);
-    return t ? (await db.materials.bulkGet(t.materialIds)).filter((m): m is Material => !!m) : [];
-  }, [testId]);
+  const store = useStore();
+  const test = store.tests.find((t) => t.id === testId);
   const [mode, setMode] = useState<AttemptMode>("practice");
   const [shuffleQuestions, setShuffleQuestions] = useState(false);
   const [editing, setEditing] = useState<Question | null>(null);
   const [regenerating, setRegenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  if (test === null) {
+  if (!test) {
     return (
       <div className="card">
         <p>Dieser Test existiert nicht (mehr).</p>
@@ -35,52 +28,58 @@ export default function TestPage({ testId }: { testId: string }) {
       </div>
     );
   }
-  if (!test || !attempts || !materials) return null;
+  const attempts = store.attempts.filter((a) => a.testId === testId).sort((a, b) => b.startedAt - a.startedAt);
+  const materials = store.materials.filter((m) => test.materialIds.includes(m.id));
 
   const inProgress = attempts.find((a) => a.status === "in_progress");
   const finished = attempts.filter((a) => a.status === "finished");
 
-  async function start() {
-    const id = await startAttempt(test!, { mode, shuffle: shuffleQuestions });
+  function start() {
+    const id = startAttempt(test!, { mode, shuffle: shuffleQuestions });
     navigate(`/run/${id}`);
   }
 
   async function rename() {
-    const title = prompt("Neuer Titel:", test!.title)?.trim();
-    if (title) await db.tests.update(testId, { title });
+    const title = await promptDialog("Test umbenennen", { label: "Titel", initial: test!.title });
+    if (title) repo.updateTest(testId, { title });
   }
 
   async function remove() {
-    if (!confirm(`Test „${test!.title}“ inklusive aller Ergebnisse löschen?`)) return;
-    await deleteTest(testId);
+    const ok = await confirmDialog(`„${test!.title}“ inklusive aller Ergebnisse löschen?`, {
+      title: "Test löschen",
+      confirmLabel: "Löschen",
+      danger: true,
+    });
+    if (!ok) return;
+    repo.deleteTest(testId);
     navigate(`/subject/${test!.subjectId}`, { replace: true });
   }
 
-  async function saveQuestion(q: Question) {
+  function saveQuestion(q: Question) {
     const exists = test!.questions.some((x) => x.id === q.id);
     const questions = exists ? test!.questions.map((x) => (x.id === q.id ? q : x)) : [...test!.questions, q];
-    await db.tests.update(testId, { questions });
+    repo.updateTest(testId, { questions });
     setEditing(null);
   }
 
   async function deleteQuestion(q: Question) {
-    if (!confirm("Diese Frage löschen?")) return;
-    await db.tests.update(testId, { questions: test!.questions.filter((x) => x.id !== q.id) });
+    const ok = await confirmDialog("Diese Frage löschen?", { title: "Frage löschen", confirmLabel: "Löschen", danger: true });
+    if (ok) repo.updateTest(testId, { questions: test!.questions.filter((x) => x.id !== q.id) });
   }
 
   async function regenerate() {
     setError(null);
     setRegenerating(true);
     try {
-      const fresh = await generateTest({
+      const fresh = await platform.generateTest({
         subjectId: test!.subjectId,
-        materials: materials ?? [],
+        materials,
         settings: test!.settings,
       });
-      await db.tests.add(fresh);
+      repo.addTest(fresh);
       navigate(`/test/${fresh.id}`);
     } catch (e) {
-      setError(describeError(e));
+      setError(platform.describeError(e));
     } finally {
       setRegenerating(false);
     }
@@ -136,7 +135,7 @@ export default function TestPage({ testId }: { testId: string }) {
 
       {test.notes && (
         <div className="callout">
-          <strong>Hinweis der KI:</strong> {test.notes}
+          <strong>Hinweis von Claude:</strong> {test.notes}
         </div>
       )}
 
@@ -233,7 +232,7 @@ export default function TestPage({ testId }: { testId: string }) {
           </button>
         </div>
         <p className="muted small">
-          Prüfe die Fragen bei Bedarf – falls die KI etwas falsch übernommen hat, kannst du es hier korrigieren.
+          Prüfe die Fragen bei Bedarf – falls Claude etwas falsch übernommen hat, kannst du es hier korrigieren.
         </p>
         {test.questions.map((q, i) => (
           <details key={q.id} className="card question-preview">

@@ -1,27 +1,15 @@
 import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod";
-import { newId } from "../db";
-import { getSettings } from "../settings";
-import type { GenerationSettings, Material, Test } from "../types";
+import { countQuestions, normalizeQuestions } from "../../ai/normalize";
+import { GENERATION_SYSTEM_PROMPT, buildTaskInstruction } from "../../ai/prompts";
+import { GeneratedTestSchema } from "../../ai/schemas";
+import { newId } from "../../lib/ids";
+import { getSettings } from "../../settings";
+import type { Test } from "../../types";
+import type { GenerateParams } from "../types";
 import { AiResponseError, FALLBACK_BETA, getClient } from "./client";
 import { MAX_REQUEST_BYTES, estimateRequestBytes, materialsToContent } from "./materials";
-import { normalizeQuestions } from "./normalize";
-import { GENERATION_SYSTEM_PROMPT, buildTaskInstruction } from "./prompts";
-import { GeneratedTestSchema } from "./schemas";
 
-export type GenerationPhase = "preparing" | "analyzing" | "writing";
-
-export interface GenerationProgress {
-  phase: GenerationPhase;
-  questionsSoFar: number;
-}
-
-export async function generateTest(params: {
-  subjectId: string;
-  materials: Material[];
-  settings: GenerationSettings;
-  signal?: AbortSignal;
-  onProgress?: (p: GenerationProgress) => void;
-}): Promise<Test> {
+export async function generateTest(params: GenerateParams): Promise<Test> {
   const { materials, settings, signal, onProgress } = params;
   if (materials.length === 0) throw new AiResponseError("Bitte mindestens ein Material auswählen.");
   if (estimateRequestBytes(materials) > MAX_REQUEST_BYTES) {
@@ -55,7 +43,7 @@ export async function generateTest(params: {
   );
 
   stream.on("text", (_delta, snapshot) => {
-    onProgress?.({ phase: "writing", questionsSoFar: countOccurrences(snapshot, '"prompt"') });
+    onProgress?.({ phase: "writing", questionsSoFar: countQuestions(snapshot) });
   });
 
   const message = await stream.finalMessage();
@@ -99,12 +87,3 @@ export async function generateTest(params: {
   };
 }
 
-function countOccurrences(haystack: string, needle: string): number {
-  let count = 0;
-  let index = haystack.indexOf(needle);
-  while (index !== -1) {
-    count++;
-    index = haystack.indexOf(needle, index + needle.length);
-  }
-  return count;
-}

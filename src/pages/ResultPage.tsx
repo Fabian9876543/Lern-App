@@ -1,20 +1,17 @@
-import { useLiveQuery } from "dexie-react-hooks";
 import Feedback, { formatPoints } from "../components/Feedback";
 import Markdown from "../components/Markdown";
 import QuestionMeta from "../components/QuestionMeta";
-import { db } from "../db";
 import { attemptQuestions, formatDuration, selfGrade, startAttempt, summarize } from "../lib/attempts";
 import { navigate } from "../router";
+import { repo, useStore } from "../store/store";
 import type { AnswerRecord, Question, Verdict } from "../types";
 
 export default function ResultPage({ attemptId }: { attemptId: string }) {
-  const attempt = useLiveQuery(async () => (await db.attempts.get(attemptId)) ?? null, [attemptId]);
-  const test = useLiveQuery(async () => {
-    const a = await db.attempts.get(attemptId);
-    return a ? ((await db.tests.get(a.testId)) ?? null) : null;
-  }, [attemptId]);
+  const store = useStore();
+  const attempt = store.attempts.find((a) => a.id === attemptId);
+  const test = attempt ? store.tests.find((t) => t.id === attempt.testId) : undefined;
 
-  if (attempt === null || test === null) {
+  if (!attempt || !test) {
     return (
       <div className="card">
         <p>Dieses Ergebnis existiert nicht (mehr).</p>
@@ -22,13 +19,11 @@ export default function ResultPage({ attemptId }: { attemptId: string }) {
       </div>
     );
   }
-  if (!attempt || !test) return null;
-
   const questions = attemptQuestions(attempt, test);
   const summary = summarize(attempt, test);
   const toRepeat = questions.filter((q) => attempt.answers[q.id]?.verdict !== "correct");
 
-  async function onSelfGrade(q: Question, v: Verdict) {
+  function onSelfGrade(q: Question, v: Verdict) {
     const rec: AnswerRecord = attempt!.answers[q.id] ?? {
       response: {},
       checked: true,
@@ -36,13 +31,11 @@ export default function ResultPage({ attemptId }: { attemptId: string }) {
       maxScore: q.points,
       verdict: null,
     };
-    await db.attempts.update(attempt!.id, (a) => {
-      a.answers[q.id] = selfGrade(rec, v);
-    });
+    repo.updateAttempt(attempt!.id, (a) => ({ ...a, answers: { ...a.answers, [q.id]: selfGrade(rec, v) } }));
   }
 
-  async function repeat(ids?: string[]) {
-    const id = await startAttempt(test!, {
+  function repeat(ids?: string[]) {
+    const id = startAttempt(test!, {
       mode: attempt!.mode,
       questionIds: ids,
       shuffle: !!ids,

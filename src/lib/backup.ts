@@ -1,8 +1,10 @@
-import { db } from "../db";
+import { getState, repo } from "../store/store";
 import type { Attempt, Material, Subject, Test } from "../types";
 import { blobToDataUrl } from "./files";
 
-interface BackupMaterial extends Omit<Material, "blob"> {
+/** Backup aller Daten als JSON – auch zum Umziehen zwischen Web- und claude.ai-Version. */
+
+interface BackupMaterial extends Omit<Material, "blob" | "assetId"> {
   blobDataUrl?: string;
 }
 
@@ -17,16 +19,31 @@ interface Backup {
 }
 
 export async function exportBackup(): Promise<Blob> {
-  const [subjects, materials, tests, attempts] = await Promise.all([
-    db.subjects.toArray(),
-    db.materials.toArray(),
-    db.tests.toArray(),
-    db.attempts.toArray(),
-  ]);
+  const { subjects, materials, tests, attempts } = getState();
   const backupMaterials: BackupMaterial[] = [];
   for (const m of materials) {
-    const { blob, ...rest } = m;
-    backupMaterials.push(blob ? { ...rest, blobDataUrl: await blobToDataUrl(blob) } : rest);
+    const { blob: _blob, assetId: _assetId, ...rest } = m;
+    if (m.kind === "text" && m.text !== undefined) {
+      backupMaterials.push(rest);
+      continue;
+    }
+    const blob = await repo.loadMaterialBlob(m);
+    if (m.kind === "text") backupMaterials.push({ ...rest, text: (await blob?.text()) ?? "" });
+    else backupMaterials.push(blob ? { ...rest, blobDataUrl: await blobToDataUrl(blob) } : rest);
+  }
+  // Antwort-Fotos, die als Datei gespeichert sind, werden eingebettet.
+  const portableAttempts: Attempt[] = [];
+  for (const a of attempts) {
+    const answers: Attempt["answers"] = {};
+    for (const [qid, rec] of Object.entries(a.answers)) {
+      const image = rec.response.image;
+      if (image && !image.startsWith("data:")) {
+        const res = await fetch(image).catch(() => null);
+        const dataUrl = res?.ok ? await blobToDataUrl(await res.blob()) : undefined;
+        answers[qid] = { ...rec, response: { ...rec.response, image: dataUrl } };
+      } else answers[qid] = rec;
+    }
+    portableAttempts.push({ ...a, answers });
   }
   const backup: Backup = {
     app: "lern-app",
@@ -35,7 +52,7 @@ export async function exportBackup(): Promise<Blob> {
     subjects,
     materials: backupMaterials,
     tests,
-    attempts,
+    attempts: portableAttempts,
   };
   return new Blob([JSON.stringify(backup)], { type: "application/json" });
 }
@@ -50,27 +67,23 @@ export async function importBackup(file: File): Promise<{ subjects: number; test
   if (data?.app !== "lern-app" || !Array.isArray(data.subjects)) {
     throw new Error("Die Datei ist kein Backup dieser Lern-App.");
   }
-  const materials: Material[] = [];
+  data.subjects.forEach((s) => repo.addSubject(s));
   for (const m of data.materials ?? []) {
-    const { blobDataUrl, ...rest } = m;
-    materials.push(blobDataUrl ? { ...rest, blob: await (await fetch(blobDataUrl)).blob() } : rest);
+    const { blobDataUrl, text, ...meta } = m;
+    const blob = blobDataUrl ? await (await fetch(blobDataUrl)).blob() : undefined;
+    await repo.addMaterial(meta, { blob, text });
   }
-  await db.transaction("rw", [db.subjects, db.materials, db.tests, db.attempts], async () => {
-    await db.subjects.bulkPut(data.subjects);
-    await db.materials.bulkPut(materials);
-    await db.tests.bulkPut(data.tests ?? []);
-    await db.attempts.bulkPut(data.attempts ?? []);
-  });
+  (data.tests ?? []).forEach((t) => repo.addTest(t));
+  for (const a of data.attempts ?? []) {
+    const answers: Attempt["answers"] = {};
+    for (const [qid, rec] of Object.entries(a.answers)) {
+      const image = rec.response.image;
+      if (image?.startsWith("data:")) {
+        const blob = await (await fetch(image)).blob();
+        answers[qid] = { ...rec, response: { ...rec.response, image: await repo.storeAnswerImage(blob) } };
+      } else answers[qid] = rec;
+    }
+    repo.addAttempt({ ...a, answers });
+  }
   return { subjects: data.subjects.length, tests: data.tests?.length ?? 0 };
-}
-
-export function downloadBlob(blob: Blob, fileName: string): void {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = fileName;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }

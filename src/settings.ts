@@ -1,10 +1,22 @@
 import { useSyncExternalStore } from "react";
 
+export type ModelTier = "quick" | "default" | "complex";
+
 export interface Settings {
+  /** Web-Version: Claude-API-Schlüssel und Modelle. */
   apiKey: string;
   generationModel: string;
   gradingModel: string;
+  /** claude.ai-Version: Modellstufen. */
+  generationTier: ModelTier;
+  gradingTier: ModelTier;
 }
+
+export const TIERS: { id: ModelTier; label: string; hint: string }[] = [
+  { id: "complex", label: "Am stärksten", hint: "beste Qualität" },
+  { id: "default", label: "Standard", hint: "ausgewogen" },
+  { id: "quick", label: "Schnell", hint: "am sparsamsten" },
+];
 
 export const MODELS: { id: string; label: string; hint: string }[] = [
   { id: "claude-opus-5-5", label: "Claude Opus 5.5", hint: "beste Qualität" },
@@ -18,6 +30,8 @@ const DEFAULTS: Settings = {
   apiKey: "",
   generationModel: "claude-opus-5-5",
   gradingModel: "claude-opus-5-5",
+  generationTier: "complex",
+  gradingTier: "default",
 };
 
 let cache: Settings | null = null;

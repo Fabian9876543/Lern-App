@@ -1,13 +1,13 @@
-import { gradeWithAi } from "../ai/gradeAnswer";
-import { db, newId } from "../db";
-import { getSettings } from "../settings";
+import platform from "@platform-impl";
+import { repo } from "../store/store";
 import type { AnswerRecord, AnswerResponse, Attempt, AttemptMode, Question, Test } from "../types";
 import { gradeLocally, hasAnswer } from "./grading";
+import { newId } from "./ids";
 
-export async function startAttempt(
+export function startAttempt(
   test: Test,
   opts: { mode: AttemptMode; questionIds?: string[]; shuffle: boolean; label?: string },
-): Promise<string> {
+): string {
   let ids = opts.questionIds ?? test.questions.map((q) => q.id);
   if (opts.shuffle) ids = shuffle(ids);
   const attempt: Attempt = {
@@ -23,7 +23,7 @@ export async function startAttempt(
     finishedAt: null,
     label: opts.label ?? (opts.mode === "exam" ? "Prüfungsmodus" : "Übungsmodus"),
   };
-  await db.attempts.add(attempt);
+  repo.addAttempt(attempt);
   return attempt.id;
 }
 
@@ -37,12 +37,12 @@ export function shuffle<T>(items: T[]): T[] {
 }
 
 export function canUseAi(): boolean {
-  return getSettings().apiKey.trim() !== "";
+  return platform.aiStatus().state === "ready";
 }
 
 /**
  * Bewertet eine Antwort: zuerst lokal (Auswahl, Zahl, exakte Kurzantwort),
- * sonst per KI. Ohne API-Schlüssel bleibt das Urteil offen (Selbstbewertung).
+ * sonst per KI. Ist keine KI verfügbar, bleibt das Urteil offen (Selbstbewertung).
  */
 export async function evaluateAnswer(
   question: Question,
@@ -59,7 +59,7 @@ export async function evaluateAnswer(
   if (!canUseAi()) {
     return { ...base, score: 0, verdict: null };
   }
-  const ai = await gradeWithAi(question, response, signal);
+  const ai = await platform.gradeWithAi(question, response, signal);
   return { ...base, score: ai.score, verdict: ai.verdict, feedback: ai.feedback, gradedBy: "ai" };
 }
 

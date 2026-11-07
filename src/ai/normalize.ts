@@ -97,3 +97,8 @@ export function describeCorrectAnswer(q: Question): string {
 export function formatNumber(n: number): string {
   return n.toLocaleString("de-DE", { maximumFractionDigits: 10 });
 }
+
+/** Zählt, wie viele Fragen eine noch unvollständige JSON-Antwort schon enthält. */
+export function countQuestions(partialJson: string): number {
+  return partialJson.split('"prompt"').length - 1;
+}

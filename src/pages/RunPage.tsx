@@ -1,29 +1,27 @@
-import { useLiveQuery } from "dexie-react-hooks";
+import platform from "@platform-impl";
 import { useEffect, useRef, useState } from "react";
-import { describeError } from "../ai/client";
 import AnswerInput from "../components/AnswerInput";
 import Feedback from "../components/Feedback";
 import Markdown from "../components/Markdown";
 import QuestionMeta from "../components/QuestionMeta";
-import { db } from "../db";
+import { confirmDialog } from "../components/Dialogs";
 import { attemptQuestions, evaluateAnswer, selfGrade } from "../lib/attempts";
 import { hasAnswer } from "../lib/grading";
 import { navigate } from "../router";
+import { getState, repo, useStore } from "../store/store";
 import type { AnswerRecord, AnswerResponse, Attempt, Test, Verdict } from "../types";
 
 export default function RunPage({ attemptId }: { attemptId: string }) {
-  const attempt = useLiveQuery(async () => (await db.attempts.get(attemptId)) ?? null, [attemptId]);
-  const test = useLiveQuery(async () => {
-    const a = await db.attempts.get(attemptId);
-    return a ? ((await db.tests.get(a.testId)) ?? null) : null;
-  }, [attemptId]);
+  const store = useStore();
+  const attempt = store.attempts.find((a) => a.id === attemptId);
+  const test = attempt ? store.tests.find((t) => t.id === attempt.testId) : undefined;
   const finished = attempt?.status === "finished";
 
   useEffect(() => {
     if (finished) navigate(`/result/${attemptId}`, { replace: true });
   }, [finished, attemptId]);
 
-  if (attempt === null || test === null) {
+  if (!attempt || !test) {
     return (
       <div className="card">
         <p>Dieser Durchlauf existiert nicht (mehr).</p>
@@ -31,7 +29,7 @@ export default function RunPage({ attemptId }: { attemptId: string }) {
       </div>
     );
   }
-  if (!attempt || !test || finished) return null;
+  if (finished) return null;
   return <Runner attempt={attempt} test={test} />;
 }
 
@@ -71,10 +69,8 @@ function Runner({ attempt, test }: { attempt: Attempt; test: Test }) {
   const checked = !!record?.checked;
   const locked = checked && !isExam;
 
-  async function writeAnswer(qid: string, rec: AnswerRecord) {
-    await db.attempts.update(attempt.id, (a) => {
-      a.answers[qid] = rec;
-    });
+  function writeAnswer(qid: string, rec: AnswerRecord) {
+    repo.updateAttempt(attempt.id, (a) => ({ ...a, answers: { ...a.answers, [qid]: rec } }));
   }
 
   function onDraftChange(r: AnswerResponse) {
@@ -94,10 +90,10 @@ function Runner({ attempt, test }: { attempt: Attempt; test: Test }) {
     }, 300);
   }
 
-  async function flushDraft() {
+  function flushDraft() {
     window.clearTimeout(saveTimer.current);
     if (!checked && hasAnswer(question, draft)) {
-      await writeAnswer(question.id, {
+      writeAnswer(question.id, {
         response: draft,
         checked: false,
         score: 0,
@@ -108,9 +104,9 @@ function Runner({ attempt, test }: { attempt: Attempt; test: Test }) {
     }
   }
 
-  async function goTo(i: number) {
-    await flushDraft();
-    await db.attempts.update(attempt.id, { currentIndex: Math.max(0, Math.min(questions.length - 1, i)) });
+  function goTo(i: number) {
+    flushDraft();
+    repo.updateAttempt(attempt.id, { currentIndex: Math.max(0, Math.min(questions.length - 1, i)) });
   }
 
   async function check(giveUp = false) {
@@ -121,10 +117,10 @@ function Runner({ attempt, test }: { attempt: Attempt; test: Test }) {
       const response = giveUp ? {} : draft;
       const rec = await evaluateAnswer(question, response, { usedHint: showHint });
       if (giveUp) rec.feedback = "Lösung angezeigt.";
-      await writeAnswer(question.id, rec);
+      writeAnswer(question.id, rec);
     } catch (e) {
-      setError(`${describeError(e)} Du kannst deine Antwort stattdessen selbst bewerten.`);
-      await writeAnswer(question.id, {
+      setError(`${platform.describeError(e)} Du kannst deine Antwort stattdessen selbst bewerten.`);
+      writeAnswer(question.id, {
         response: draft,
         checked: true,
         score: 0,
@@ -137,15 +133,21 @@ function Runner({ attempt, test }: { attempt: Attempt; test: Test }) {
     }
   }
 
-  async function onSelfGrade(v: Verdict) {
-    if (record) await writeAnswer(question.id, selfGrade(record, v));
+  function onSelfGrade(v: Verdict) {
+    if (record) writeAnswer(question.id, selfGrade(record, v));
   }
 
   async function finish() {
-    await flushDraft();
-    const fresh = (await db.attempts.get(attempt.id))!;
+    flushDraft();
+    const fresh = getState().attempts.find((a) => a.id === attempt.id)!;
     const unanswered = questions.filter((q) => !hasAnswer(q, fresh.answers[q.id]?.response)).length;
-    if (unanswered > 0 && !confirm(`${unanswered} Frage(n) sind noch unbeantwortet. Trotzdem abgeben?`)) return;
+    if (unanswered > 0) {
+      const ok = await confirmDialog(
+        unanswered === 1 ? "1 Frage ist noch unbeantwortet." : `${unanswered} Fragen sind noch unbeantwortet.`,
+        { title: isExam ? "Trotzdem abgeben?" : "Test beenden?", confirmLabel: isExam ? "Abgeben" : "Beenden" },
+      );
+      if (!ok) return;
+    }
 
     if (isExam) {
       await gradeAll(fresh);
@@ -165,9 +167,9 @@ function Runner({ attempt, test }: { attempt: Attempt; test: Test }) {
           };
         }
       }
-      await db.attempts.update(attempt.id, { answers });
+      repo.updateAttempt(attempt.id, { answers });
     }
-    await db.attempts.update(attempt.id, { status: "finished", finishedAt: Date.now() });
+    repo.updateAttempt(attempt.id, { status: "finished", finishedAt: Date.now() });
     navigate(`/result/${attempt.id}`, { replace: true });
   }
 
@@ -190,7 +192,7 @@ function Runner({ attempt, test }: { attempt: Attempt; test: Test }) {
             score: 0,
             maxScore: q.points,
             verdict: null,
-            feedback: `Automatische Bewertung fehlgeschlagen: ${describeError(e)}`,
+            feedback: `Automatische Bewertung fehlgeschlagen: ${platform.describeError(e)}`,
           };
         }
         done++;
@@ -198,7 +200,7 @@ function Runner({ attempt, test }: { attempt: Attempt; test: Test }) {
       }
     }
     await Promise.all([worker(), worker(), worker(), worker()]);
-    await db.attempts.update(attempt.id, { answers });
+    repo.updateAttempt(attempt.id, { answers });
   }
 
   if (submitting) {
@@ -208,7 +210,7 @@ function Runner({ attempt, test }: { attempt: Attempt; test: Test }) {
         <h2>
           Antworten werden bewertet … {submitting.done}/{submitting.total}
         </h2>
-        <p className="muted">Offene Antworten werden von der KI anhand der Musterlösung bewertet.</p>
+        <p className="muted">Offene Antworten werden von Claude anhand der Musterlösung bewertet.</p>
       </div>
     );
   }

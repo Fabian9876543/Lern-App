@@ -1,4 +1,4 @@
-import type { Difficulty, GenerationSettings, QuestionType } from "../types";
+import type { Difficulty, GenerationSettings, Question, QuestionType } from "../types";
 
 export const TYPE_LABELS: Record<QuestionType, string> = {
   single_choice: "Single Choice",
@@ -75,3 +75,50 @@ export const GRADING_SYSTEM_PROMPT = `Du bewertest die Antwort eines Lernenden a
 - feedback: 1–4 Sätze in der Sprache der Aufgabe, direkt an den Lernenden („du“). Nenne konkret, was stimmt und was fehlt oder falsch ist. Die Musterlösung wird separat angezeigt – wiederhole sie nicht vollständig.
 - Ist ein Foto einer handschriftlichen Lösung beigefügt, bewerte den Inhalt des Fotos. Ist es unleserlich, sag das im Feedback.
 - Leere oder themenfremde Antworten bekommen 0 Punkte.`;
+
+/** Aufgabe, Musterlösung und Antwort für die KI-Bewertung. */
+export function gradingUserText(
+  question: Pick<Question, "type" | "prompt" | "modelSolution" | "acceptedAnswers" | "points">,
+  correctAnswer: string,
+  answerText: string,
+  hasImage: boolean,
+): string {
+  const accepted =
+    question.type === "short_answer" && question.acceptedAnswers.length
+      ? `\n\nAkzeptierte Antworten (Beispiele): ${question.acceptedAnswers.join(" | ")}`
+      : "";
+  return `<aufgabe>\n${question.prompt}\n</aufgabe>\n\n<musterloesung>\n${question.modelSolution || correctAnswer}\n</musterloesung>${accepted}\n\nMaximalpunktzahl: ${question.points}\n\n<antwort_des_lernenden>\n${answerText || "(keine Textantwort)"}\n</antwort_des_lernenden>${hasImage ? "\n\nDas beigefügte Bild ist ein Foto der handschriftlichen Lösung des Lernenden." : ""}`;
+}
+
+/**
+ * Formatbeschreibung für Umgebungen ohne erzwungenes JSON-Schema
+ * (claude.ai-Version). Die Felder entsprechen GeneratedTestSchema.
+ */
+export const TEST_JSON_FORMAT = `Antworte ausschließlich mit einem JSON-Objekt in genau dieser Form (keine weiteren Texte):
+{
+  "title": "Kurzer Titel für den Test",
+  "notes": "Hinweise an den Lernenden oder leerer String",
+  "questions": [
+    {
+      "type": "single_choice" | "multiple_choice" | "short_answer" | "numeric" | "free_text",
+      "prompt": "Aufgabenstellung (Markdown, LaTeX)",
+      "options": ["…"],                 // nur bei Auswahlfragen, sonst []
+      "correct_options": [0],           // 0-basierte Indizes, sonst []
+      "numeric_answer": 3.14 | null,
+      "numeric_tolerance": 0.01 | null,
+      "unit": "m/s" | null,
+      "accepted_answers": ["…"],        // nur bei short_answer, sonst []
+      "model_solution": "Vollständige Musterlösung mit Lösungsweg",
+      "explanation": "Kurze Erklärung und typische Fehler",
+      "hint": "Denkanstoß" | null,
+      "topic": "Kurzes Thema",
+      "difficulty": "easy" | "medium" | "hard",
+      "points": 1 bis 10,
+      "source": "Herkunft im Material" | null,
+      "solution_from_material": true | false
+    }
+  ]
+}
+Die Kommentare oben dienen nur der Erklärung – schreibe gültiges JSON ohne Kommentare. Achtung: In JSON-Strings muss jeder Backslash verdoppelt werden, also z. B. "$\\\\frac{1}{2}$" für $\\frac{1}{2}$.`;
+
+export const GRADING_JSON_FORMAT = `Antworte ausschließlich mit einem JSON-Objekt: {"verdict": "correct" | "partial" | "wrong", "score": Zahl zwischen 0 und der Maximalpunktzahl, "feedback": "1–4 Sätze"}`;

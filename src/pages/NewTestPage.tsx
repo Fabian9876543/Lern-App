@@ -1,14 +1,18 @@
-import { useLiveQuery } from "dexie-react-hooks";
+import platform from "@platform-impl";
 import { useEffect, useRef, useState } from "react";
-import { describeError } from "../ai/client";
-import { generateTest, type GenerationProgress } from "../ai/generateTest";
-import { MAX_REQUEST_BYTES, estimateRequestBytes } from "../ai/materials";
 import { DIFFICULTY_LABELS, TYPE_LABELS } from "../ai/prompts";
-import { db } from "../db";
 import { ROLE_LABELS, formatBytes } from "../lib/files";
-import { navigate } from "../router";
-import { MODELS, useSettings } from "../settings";
+import { IS_ARTIFACT } from "../platform";
+import { navigate, routeQuery } from "../router";
+import { repo, useStore } from "../store/store";
+import type { GenerationProgress } from "../targets/types";
 import type { Difficulty, GenerationSettings, Material, QuestionType, TestMode } from "../types";
+
+/** Web-Version: maximale Größe einer API-Anfrage (Base64 vergrößert um ~33 %). */
+const MAX_REQUEST_BYTES = 31 * 1024 * 1024;
+function estimateRequestBytes(materials: Material[]): number {
+  return materials.reduce((sum, m) => sum + (m.blob ? Math.ceil(m.blob.size * 1.34) : m.size), 0);
+}
 
 const ALL_TYPES = Object.keys(TYPE_LABELS) as QuestionType[];
 
@@ -25,20 +29,23 @@ function defaultSelection(materials: Material[], mode: TestMode): Set<string> {
   return new Set(materials.filter((m) => mode === "generated" || m.role !== "reference").map((m) => m.id));
 }
 
-function fromTestId(): string | null {
-  const query = window.location.hash.split("?")[1];
-  return query ? new URLSearchParams(query).get("from") : null;
-}
-
 export default function NewTestPage({ subjectId }: { subjectId: string }) {
-  const settingsStore = useSettings();
-  const subject = useLiveQuery(() => db.subjects.get(subjectId), [subjectId]);
-  const materials = useLiveQuery(
-    () => db.materials.where("subjectId").equals(subjectId).sortBy("createdAt"),
-    [subjectId],
-  );
-  const [settings, setSettings] = useState<GenerationSettings>(DEFAULT_SETTINGS);
-  const [selected, setSelected] = useState<Set<string> | null>(null);
+  const store = useStore();
+  const ai = platform.useAiStatus();
+  const modelLabel = platform.useGenerationModelLabel();
+  const subject = store.subjects.find((s) => s.id === subjectId);
+  const materials = store.materials.filter((m) => m.subjectId === subjectId);
+  const [settings, setSettings] = useState<GenerationSettings>(() => {
+    const from = repo.getTest(routeQuery().get("from") ?? "");
+    return from
+      ? { ...DEFAULT_SETTINGS, mode: "generated", questionCount: Math.min(30, from.questions.length) }
+      : DEFAULT_SETTINGS;
+  });
+  const [selected, setSelected] = useState<Set<string>>(() => {
+    const from = repo.getTest(routeQuery().get("from") ?? "");
+    if (from) return new Set(from.materialIds.filter((id) => materials.some((m) => m.id === id)));
+    return defaultSelection(materials, "exact");
+  });
   const [progress, setProgress] = useState<GenerationProgress | null>(null);
   const [error, setError] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -51,42 +58,26 @@ export default function NewTestPage({ subjectId }: { subjectId: string }) {
     };
   }, []);
 
-  // Vorauswahl: entweder aus einem bestehenden Test („Ähnliche Aufgaben“) oder nach Rolle.
-  useEffect(() => {
-    if (!materials || selected) return;
-    const from = fromTestId();
-    if (from) {
-      db.tests.get(from).then((t) => {
-        if (t) {
-          setSettings({ ...DEFAULT_SETTINGS, mode: "generated", questionCount: Math.min(30, t.questions.length) });
-          setSelected(new Set(t.materialIds.filter((id) => materials.some((m) => m.id === id))));
-        } else setSelected(defaultSelection(materials, "exact"));
-      });
-    } else {
-      setSelected(defaultSelection(materials, "exact"));
-    }
-  }, [materials, selected]);
-
-  if (!subject || !materials || !selected) return null;
+  if (!subject) return null;
 
   const chosen = materials.filter((m) => selected.has(m.id));
   const bytes = estimateRequestBytes(chosen);
   const hasTasks = chosen.some((m) => m.role === "tasks" || m.role === "tasks_with_solutions");
   const hasSolutions = chosen.some((m) => m.role === "solutions" || m.role === "tasks_with_solutions");
-  const modelLabel = MODELS.find((m) => m.id === settingsStore.generationModel)?.label ?? settingsStore.generationModel;
 
   let blocker: string | null = null;
-  if (!settingsStore.apiKey) blocker = "Bitte zuerst in den Einstellungen einen API-Schlüssel eintragen.";
+  if (ai.state === "unavailable") blocker = ai.reason ?? "Claude ist nicht verfügbar.";
   else if (chosen.length === 0) blocker = "Bitte mindestens ein Material auswählen.";
   else if (settings.mode === "exact" && !hasTasks)
     blocker = "Für Originalaufgaben muss mindestens ein Material die Rolle „Aufgaben“ oder „Aufgaben + Lösungen“ haben.";
   else if (settings.mode === "generated" && settings.allowedTypes.length === 0)
     blocker = "Bitte mindestens ein Aufgabenformat auswählen.";
-  else if (bytes > MAX_REQUEST_BYTES) blocker = "Die Auswahl ist zu groß (max. ca. 30 MB). Bitte weniger Dateien wählen.";
+  else if (!IS_ARTIFACT && bytes > MAX_REQUEST_BYTES)
+    blocker = "Die Auswahl ist zu groß (max. ca. 30 MB). Bitte weniger Dateien wählen.";
 
   function setMode(mode: TestMode) {
     setSettings((s) => ({ ...s, mode }));
-    setSelected(defaultSelection(materials!, mode));
+    setSelected(defaultSelection(materials, mode));
   }
 
   function toggleMaterial(id: string) {
@@ -109,18 +100,18 @@ export default function NewTestPage({ subjectId }: { subjectId: string }) {
     abortRef.current = controller;
     setProgress({ phase: "preparing", questionsSoFar: 0 });
     try {
-      const test = await generateTest({
+      const test = await platform.generateTest({
         subjectId,
         materials: chosen,
         settings: { ...settings, questionCount: settings.mode === "generated" ? settings.questionCount : null },
         signal: controller.signal,
         onProgress: (p) => mounted.current && setProgress(p),
       });
-      await db.tests.add(test);
+      repo.addTest(test);
       if (mounted.current) navigate(`/test/${test.id}`, { replace: true });
     } catch (e) {
       if (mounted.current) {
-        setError(controller.signal.aborted ? null : describeError(e));
+        setError(controller.signal.aborted ? null : platform.describeError(e));
         setProgress(null);
       }
     } finally {
@@ -134,7 +125,7 @@ export default function NewTestPage({ subjectId }: { subjectId: string }) {
         <div className="spinner" />
         <h2>
           {progress.phase === "preparing" && "Material wird vorbereitet …"}
-          {progress.phase === "analyzing" && "Die KI liest dein Material …"}
+          {progress.phase === "analyzing" && "Claude liest dein Material …"}
           {progress.phase === "writing" &&
             (progress.questionsSoFar > 0 ? `${progress.questionsSoFar} Fragen erstellt …` : "Fragen werden geschrieben …")}
         </h2>
@@ -169,7 +160,7 @@ export default function NewTestPage({ subjectId }: { subjectId: string }) {
             <span className="mode-icon">📋</span>
             <strong>Meine Aufgaben abfragen</strong>
             <span className="muted small">
-              Die KI übernimmt genau die Aufgaben aus deinen Aufgabenblättern und die Lösungen aus deinen
+              Claude übernimmt genau die Aufgaben aus deinen Aufgabenblättern und die Lösungen aus deinen
               Lösungsdateien und macht daraus einen interaktiven Test.
             </span>
           </button>
@@ -182,7 +173,7 @@ export default function NewTestPage({ subjectId }: { subjectId: string }) {
             <span className="mode-icon">✨</span>
             <strong>Neue Aufgaben erzeugen</strong>
             <span className="muted small">
-              Dein Material dient als Referenz: Die KI erstellt neue, andere Aufgaben zum gleichen Stoff – ideal zum
+              Dein Material dient als Referenz: Claude erstellt neue, andere Aufgaben zum gleichen Stoff – ideal zum
               Üben über die bekannten Aufgaben hinaus.
             </span>
           </button>
@@ -205,7 +196,7 @@ export default function NewTestPage({ subjectId }: { subjectId: string }) {
         <p className="muted small">
           Ausgewählt: {chosen.length} {chosen.length === 1 ? "Datei" : "Dateien"} · {formatBytes(bytes)}
           {settings.mode === "exact" && hasTasks && !hasSolutions && (
-            <> · Keine Lösungsdatei ausgewählt – die KI löst die Aufgaben dann selbst.</>
+            <> · Keine Lösungsdatei ausgewählt – Claude löst die Aufgaben dann selbst.</>
           )}
         </p>
         <p className="muted small">
@@ -226,7 +217,7 @@ export default function NewTestPage({ subjectId }: { subjectId: string }) {
                   checked={settings.exactFormat === "original"}
                   onChange={() => setSettings((s) => ({ ...s, exactFormat: "original" }))}
                 />
-                Wie im Original (offene Aufgaben bleiben offen, KI bewertet deine Antwort)
+                Wie im Original (offene Aufgaben bleiben offen, Claude bewertet deine Antwort)
               </label>
               <label className="check">
                 <input
@@ -303,7 +294,9 @@ export default function NewTestPage({ subjectId }: { subjectId: string }) {
       {error && <div className="callout callout-error">{error}</div>}
 
       <div className="row-between sticky-actions">
-        <span className="muted small">Modell: {modelLabel}</span>
+        <span className="muted small">
+          Modell: {modelLabel} · {platform.usageNote}
+        </span>
         <button className="btn btn-primary btn-lg" disabled={!!blocker} onClick={generate} title={blocker ?? ""}>
           Test erstellen
         </button>

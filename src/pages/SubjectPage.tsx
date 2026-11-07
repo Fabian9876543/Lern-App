@@ -1,31 +1,26 @@
-import { useLiveQuery } from "dexie-react-hooks";
 import { useState } from "react";
+import { confirmDialog, promptDialog } from "../components/Dialogs";
 import FileDrop from "../components/FileDrop";
+import MaterialPreview from "../components/MaterialPreview";
 import Modal from "../components/Modal";
-import { db, deleteSubject, newId } from "../db";
-import { summarize, formatDate } from "../lib/attempts";
+import { formatDate, summarize } from "../lib/attempts";
 import { ACCEPTED_FILE_TYPES, ROLE_LABELS, formatBytes, guessRole, prepareFile } from "../lib/files";
+import { newId } from "../lib/ids";
 import { navigate } from "../router";
+import { repo, useStore } from "../store/store";
 import type { Material, MaterialRole } from "../types";
 
 const KIND_ICON = { pdf: "📄", image: "🖼️", text: "📝" } as const;
 
 export default function SubjectPage({ subjectId }: { subjectId: string }) {
-  const subject = useLiveQuery(async () => (await db.subjects.get(subjectId)) ?? null, [subjectId]);
-  const materials = useLiveQuery(
-    () => db.materials.where("subjectId").equals(subjectId).sortBy("createdAt"),
-    [subjectId],
-  );
-  const tests = useLiveQuery(
-    () => db.tests.where("subjectId").equals(subjectId).reverse().sortBy("createdAt"),
-    [subjectId],
-  );
-  const attempts = useLiveQuery(() => db.attempts.where("subjectId").equals(subjectId).toArray(), [subjectId]);
+  const store = useStore();
   const [uploadErrors, setUploadErrors] = useState<string[]>([]);
-  const [uploading, setUploading] = useState(false);
+  const [uploading, setUploading] = useState(0);
   const [showPaste, setShowPaste] = useState(false);
+  const [preview, setPreview] = useState<Material | null>(null);
 
-  if (subject === null) {
+  const subject = store.subjects.find((s) => s.id === subjectId);
+  if (!subject) {
     return (
       <div className="card">
         <p>Dieses Fach existiert nicht (mehr).</p>
@@ -33,45 +28,48 @@ export default function SubjectPage({ subjectId }: { subjectId: string }) {
       </div>
     );
   }
-  if (!subject || !materials || !tests || !attempts) return null;
+  const materials = store.materials.filter((m) => m.subjectId === subjectId);
+  const tests = store.tests.filter((t) => t.subjectId === subjectId).sort((a, b) => b.createdAt - a.createdAt);
+  const attempts = store.attempts.filter((a) => a.subjectId === subjectId);
 
   async function addFiles(files: File[]) {
-    setUploading(true);
+    setUploading((n) => n + files.length);
     const errors: string[] = [];
     for (const file of files) {
       try {
-        const prepared = await prepareFile(file);
-        await db.materials.add({
-          id: newId(),
-          subjectId,
-          role: guessRole(file.name),
-          createdAt: Date.now(),
-          ...prepared,
-        });
+        const { blob, text, ...prepared } = await prepareFile(file);
+        await repo.addMaterial(
+          { id: newId(), subjectId, role: guessRole(file.name), createdAt: Date.now(), ...prepared },
+          { blob, text },
+        );
       } catch (e) {
-        errors.push(e instanceof Error ? e.message : String(e));
+        errors.push(`${file.name}: ${e instanceof Error ? e.message : String(e)}`);
+      } finally {
+        setUploading((n) => n - 1);
       }
     }
     setUploadErrors(errors);
-    setUploading(false);
   }
 
   async function rename() {
-    const name = prompt("Neuer Name des Fachs:", subject!.name)?.trim();
-    if (name) await db.subjects.update(subjectId, { name });
+    const name = await promptDialog("Fach umbenennen", { label: "Name", initial: subject!.name });
+    if (name) repo.updateSubject(subjectId, { name });
   }
 
   async function remove() {
-    if (!confirm(`Fach „${subject!.name}“ mit allen Materialien, Tests und Ergebnissen löschen?`)) return;
-    await deleteSubject(subjectId);
+    const ok = await confirmDialog(`„${subject!.name}“ mit allen Materialien, Tests und Ergebnissen löschen?`, {
+      title: "Fach löschen",
+      confirmLabel: "Löschen",
+      danger: true,
+    });
+    if (!ok) return;
+    repo.deleteSubject(subjectId);
     navigate("/", { replace: true });
   }
 
-  function openMaterial(m: Material) {
-    const blob = m.blob ?? new Blob([m.text ?? ""], { type: "text/plain;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    window.open(url, "_blank", "noopener");
-    setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  async function removeMaterial(m: Material) {
+    const ok = await confirmDialog(`„${m.name}“ löschen?`, { title: "Material löschen", confirmLabel: "Löschen", danger: true });
+    if (ok) repo.deleteMaterial(m.id);
   }
 
   return (
@@ -105,12 +103,12 @@ export default function SubjectPage({ subjectId }: { subjectId: string }) {
         </div>
         <p className="muted small">
           Lade Aufgabenblätter, Lösungen, Skripte oder Altklausuren hoch und gib jeder Datei die passende Rolle. Die
-          Rolle steuert, wie die KI das Material nutzt.
+          Rolle steuert, wie Claude das Material nutzt.
         </p>
         <FileDrop accept={ACCEPTED_FILE_TYPES} onFiles={addFiles} label="Dateien hochladen">
           <div className="filedrop-inner">
             <span className="filedrop-icon">⬆️</span>
-            <strong>{uploading ? "Wird verarbeitet …" : "Dateien hierher ziehen oder tippen zum Auswählen"}</strong>
+            <strong>{uploading > 0 ? "Wird hochgeladen …" : "Dateien hierher ziehen oder tippen zum Auswählen"}</strong>
             <span className="muted small">PDF, Fotos/Bilder, Text · Word/PowerPoint bitte als PDF exportieren</span>
           </div>
         </FileDrop>
@@ -125,7 +123,7 @@ export default function SubjectPage({ subjectId }: { subjectId: string }) {
             {materials.map((m) => (
               <li key={m.id} className="material-item">
                 <span className="material-icon">{KIND_ICON[m.kind]}</span>
-                <button className="link-btn material-name" onClick={() => openMaterial(m)} title="Öffnen">
+                <button className="link-btn material-name" onClick={() => setPreview(m)} title="Ansehen">
                   {m.name}
                   <span className="muted small"> · {formatBytes(m.size)}</span>
                 </button>
@@ -133,7 +131,7 @@ export default function SubjectPage({ subjectId }: { subjectId: string }) {
                   className={`select select-sm role-${m.role}`}
                   value={m.role}
                   aria-label={`Rolle von ${m.name}`}
-                  onChange={(e) => db.materials.update(m.id, { role: e.target.value as MaterialRole })}
+                  onChange={(e) => repo.updateMaterial(m.id, { role: e.target.value as MaterialRole })}
                 >
                   {Object.entries(ROLE_LABELS).map(([value, label]) => (
                     <option key={value} value={value}>
@@ -144,7 +142,7 @@ export default function SubjectPage({ subjectId }: { subjectId: string }) {
                 <button
                   className="btn btn-ghost btn-icon btn-sm"
                   aria-label={`${m.name} löschen`}
-                  onClick={() => confirm(`„${m.name}“ löschen?`) && db.materials.delete(m.id)}
+                  onClick={() => removeMaterial(m)}
                 >
                   🗑
                 </button>
@@ -197,6 +195,7 @@ export default function SubjectPage({ subjectId }: { subjectId: string }) {
       </section>
 
       {showPaste && <PasteTextModal subjectId={subjectId} onClose={() => setShowPaste(false)} />}
+      {preview && <MaterialPreview material={preview} onClose={() => setPreview(null)} />}
     </div>
   );
 }
@@ -205,20 +204,27 @@ function PasteTextModal({ subjectId, onClose }: { subjectId: string; onClose: ()
   const [name, setName] = useState("");
   const [text, setText] = useState("");
   const [role, setRole] = useState<MaterialRole>("reference");
+  const [error, setError] = useState<string | null>(null);
 
   async function save() {
-    await db.materials.add({
-      id: newId(),
-      subjectId,
-      name: name.trim() || "Eingefügter Text",
-      kind: "text",
-      mimeType: "text/plain",
-      role,
-      text,
-      size: text.length,
-      createdAt: Date.now(),
-    });
-    onClose();
+    try {
+      await repo.addMaterial(
+        {
+          id: newId(),
+          subjectId,
+          name: name.trim() || "Eingefügter Text",
+          kind: "text",
+          mimeType: "text/plain",
+          role,
+          size: text.length,
+          createdAt: Date.now(),
+        },
+        { text },
+      );
+      onClose();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
   }
 
   return (
@@ -227,6 +233,7 @@ function PasteTextModal({ subjectId, onClose }: { subjectId: string; onClose: ()
       onClose={onClose}
       footer={
         <>
+          {error && <span className="error-text">{error}</span>}
           <button className="btn btn-ghost" onClick={onClose}>
             Abbrechen
           </button>
@@ -239,11 +246,17 @@ function PasteTextModal({ subjectId, onClose }: { subjectId: string; onClose: ()
       <div className="form-grid">
         <label className="field">
           <span>Name</span>
-          <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="z. B. Notizen Kapitel 3" />
+          <input
+            id="paste-name"
+            className="input"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="z. B. Notizen Kapitel 3"
+          />
         </label>
         <label className="field">
           <span>Rolle</span>
-          <select className="select" value={role} onChange={(e) => setRole(e.target.value as MaterialRole)}>
+          <select id="paste-role" className="select" value={role} onChange={(e) => setRole(e.target.value as MaterialRole)}>
             {Object.entries(ROLE_LABELS).map(([value, label]) => (
               <option key={value} value={value}>
                 {label}
@@ -254,7 +267,7 @@ function PasteTextModal({ subjectId, onClose }: { subjectId: string; onClose: ()
       </div>
       <label className="field">
         <span>Text</span>
-        <textarea className="textarea" rows={12} value={text} onChange={(e) => setText(e.target.value)} />
+        <textarea id="paste-text" className="textarea" rows={12} value={text} onChange={(e) => setText(e.target.value)} />
       </label>
     </Modal>
   );

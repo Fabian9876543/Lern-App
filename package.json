@@ -8,13 +8,15 @@
     "build": "tsc --noEmit -p . && vite build",
     "preview": "vite preview",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit -p ."
+    "typecheck": "tsc --noEmit -p .",
+    "build:artifact": "tsc --noEmit -p . && vite build --mode artifact && node scripts/make-artifact.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.6.0",
     "dexie": "^4.4.7",
     "dexie-react-hooks": "^4.4.0",
     "katex": "^0.19.1",
+    "pdfjs-dist": "^6.5.438",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "react-markdown": "^10.1.0",

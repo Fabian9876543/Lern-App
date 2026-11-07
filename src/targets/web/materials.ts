@@ -1,6 +1,6 @@
 import type Anthropic from "@anthropic-ai/sdk";
-import type { Material } from "../types";
-import { ROLE_LABELS, blobToBase64 } from "../lib/files";
+import type { Material } from "../../types";
+import { ROLE_LABELS, blobToBase64 } from "../../lib/files";
 
 type ContentBlock =
   | Anthropic.Beta.BetaRequestDocumentBlock

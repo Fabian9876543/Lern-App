@@ -7,6 +7,19 @@ Eine persönliche Lern-App: Du lädst deine Lernmaterialien hoch, und die App ma
 - **Neue Aufgaben erzeugen** – Lade Material als Referenz hoch (Skript, Folien, Altklausuren). Die KI erstellt neue,
   andere Aufgaben zum gleichen Stoff – in Anzahl, Schwierigkeit und Format nach Wahl.
 
+## Zwei Varianten
+
+| | claude.ai-Version | Web-Version |
+| --- | --- | --- |
+| KI | über dein Claude-Abo (Pro/Max) – keine API-Kosten | über einen Claude-API-Schlüssel (Abrechnung nach Verbrauch) |
+| Läuft | als Artifact in claude.ai (Web, Desktop, App) | eigenständig im Browser, z. B. über GitHub Pages |
+| Daten | privat im Artifact gespeichert, auf allen Geräten gleich | lokal im Browser (IndexedDB) |
+| PDFs | Text wird im Browser ausgelesen; eingescannte Seiten und Fotos gehen als Bild an Claude (verkleinert auf ca. 1,2 MP, begrenzte Anzahl pro Test) | Claude liest PDFs direkt (bis ca. 30 MB pro Test) |
+| Modellwahl | Stufen: Am stärksten / Standard / Schnell | konkrete Modelle (Opus, Sonnet, Haiku) |
+
+Beide Varianten entstehen aus demselben Code (`src/targets/artifact` bzw. `src/targets/web`). Über
+**Einstellungen → Backup** lassen sich die Daten zwischen den Varianten umziehen.
+
 ## Funktionen
 
 - Fächer mit beliebig vielen Materialien (PDF, Fotos/Bilder, Textdateien oder eingefügter Text)
@@ -27,6 +40,19 @@ Eine persönliche Lern-App: Du lädst deine Lernmaterialien hoch, und die App ma
 
 ## Starten
 
+### claude.ai-Version
+
+```bash
+npm install
+npm run build:artifact
+```
+
+Das erzeugt `dist-artifact/lern-app.html` (die Seite) und `dist-artifact/publish-files.json` (die Dateien, die
+mitveröffentlicht werden). Veröffentlicht wird das Ganze als Artifact in claude.ai mit den Fähigkeiten
+`sample` (mit Bildern), `db`, `user`, `assets` und `downloads`.
+
+### Web-Version
+
 Voraussetzung: [Node.js](https://nodejs.org/) ab Version 20.
 
 ```bash
@@ -45,9 +71,12 @@ Der Workflow `.github/workflows/deploy.yml` baut die App bei jedem Push auf `mai
 GitHub Pages. Einmalig nötig: im Repository unter **Settings → Pages → Source** „GitHub Actions“ auswählen.
 (Bei privaten Repositories setzt GitHub Pages einen kostenpflichtigen GitHub-Plan voraus.)
 
-## API-Schlüssel und Kosten
+## API-Schlüssel und Kosten (Web-Version)
 
-Die App nutzt Claude von Anthropic. Du brauchst einen API-Schlüssel aus der
+Die claude.ai-Version braucht keinen Schlüssel: Sie nutzt dein Claude-Abo, Testerstellung und Bewertung zählen
+gegen dessen Nutzungslimits.
+
+Die Web-Version nutzt die Claude-API. Du brauchst einen API-Schlüssel aus der
 [Anthropic Console](https://console.anthropic.com/settings/keys) und trägst ihn in der App unter **Einstellungen**
 ein. Abgerechnet wird nach Verbrauch über dein Anthropic-Konto. Ein Test aus einigen Seiten Material kostet grob
 geschätzt einige Cent bis wenige Dutzend Cent, je nach Umfang und Modell; das Bewerten einer Antwort liegt meist
@@ -56,26 +85,31 @@ wählen.
 
 ## Datenschutz
 
-- Es gibt keinen eigenen Server. Alle Fächer, Materialien, Tests und Ergebnisse werden lokal im Browser gespeichert
+- claude.ai-Version: Deine Daten liegen in deinem privaten Bereich des Artifacts; andere Personen, mit denen du das
+  Artifact teilst, sehen sie nicht (sie bekommen ihren eigenen leeren Bereich).
+- Web-Version: Es gibt keinen eigenen Server. Alle Fächer, Materialien, Tests und Ergebnisse werden lokal im Browser gespeichert
   (IndexedDB).
-- Der API-Schlüssel liegt nur im Browser (localStorage) und wird ausschließlich an `api.anthropic.com` gesendet.
+- Web-Version: Der API-Schlüssel liegt nur im Browser (localStorage) und wird ausschließlich an `api.anthropic.com` gesendet.
   Nutze die App deshalb nur auf deinem eigenen Gerät.
-- Materialien werden nur dann an die Claude-API geschickt, wenn du einen Test erstellst.
+- Materialien werden nur dann an Claude geschickt, wenn du einen Test erstellst.
 
 ## Entwicklung
 
 ```bash
 npm test          # Unit-Tests (Vitest)
 npm run typecheck # TypeScript prüfen
-npm run build     # Produktions-Build
+npm run build            # Web-Version → dist/
+npm run build:artifact   # claude.ai-Version → dist-artifact/
 ```
 
 Aufbau:
 
 | Pfad | Inhalt |
 | --- | --- |
-| `src/ai/` | Claude-Anbindung: Prompts, JSON-Schemas, Testerstellung, Bewertung |
-| `src/lib/` | Auswertung, Dateiverarbeitung, Durchläufe, Backup |
+| `src/ai/` | Gemeinsame KI-Logik: Prompts, JSON-Schemas, Einlesen und Prüfen der Antworten |
+| `src/targets/web/` | Web-Version: Claude-API, IndexedDB |
+| `src/targets/artifact/` | claude.ai-Version: Claude über das Abo, Artifact-Speicher, PDF-Auslesen |
+| `src/store/` | Datenhaltung (gemeinsam für beide Varianten) |
+| `src/lib/` | Auswertung, Dateiverarbeitung, PDF, Durchläufe, Backup |
 | `src/pages/` | Seiten (Übersicht, Fach, Test erstellen, Test, Durchlauf, Ergebnis, Einstellungen) |
 | `src/components/` | Wiederverwendbare Bausteine (Antwortfelder, Feedback, Markdown/LaTeX, Editor) |
-| `src/db.ts` | Lokale Datenbank (Dexie/IndexedDB) |

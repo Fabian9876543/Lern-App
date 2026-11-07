@@ -1,62 +1,55 @@
+import platform from "@platform-impl";
 import { useEffect, useState } from "react";
-import { describeError, getClient } from "../ai/client";
-import { db } from "../db";
-import { downloadBlob, exportBackup, importBackup } from "../lib/backup";
+import { confirmDialog } from "../components/Dialogs";
+import { exportBackup, importBackup } from "../lib/backup";
 import { formatBytes } from "../lib/files";
-import { MODELS, saveSettings, useSettings } from "../settings";
+import { IS_ARTIFACT } from "../platform";
+import { repo } from "../store/store";
 
 export default function SettingsPage() {
-  const settings = useSettings();
-  const [keyInput, setKeyInput] = useState(settings.apiKey);
-  const [showKey, setShowKey] = useState(false);
   const [status, setStatus] = useState<{ kind: "ok" | "error" | "info"; text: string } | null>(null);
-  const [testing, setTesting] = useState(false);
   const [usage, setUsage] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
+    if (IS_ARTIFACT) return;
     navigator.storage
       ?.estimate?.()
       .then((e) => setUsage(`${formatBytes(e.usage ?? 0)} von ca. ${formatBytes(e.quota ?? 0)} belegt`))
       .catch(() => {});
   }, []);
 
-  function saveKey() {
-    saveSettings({ apiKey: keyInput.trim() });
-    setStatus({ kind: "ok", text: "API-Schlüssel gespeichert." });
-  }
-
-  async function testConnection() {
-    saveSettings({ apiKey: keyInput.trim() });
-    setTesting(true);
-    setStatus(null);
+  async function doExport() {
+    setBusy(true);
     try {
-      const model = await getClient().models.retrieve(settings.generationModel);
-      setStatus({ kind: "ok", text: `Verbindung klappt ✓ (${model.display_name} verfügbar)` });
+      const blob = await exportBackup();
+      await platform.saveFile(blob, `lern-app-backup-${new Date().toISOString().slice(0, 10)}.json`);
     } catch (e) {
-      setStatus({ kind: "error", text: describeError(e) });
+      setStatus({ kind: "error", text: e instanceof Error ? e.message : String(e) });
     } finally {
-      setTesting(false);
+      setBusy(false);
     }
   }
 
-  async function doExport() {
-    const blob = await exportBackup();
-    downloadBlob(blob, `lern-app-backup-${new Date().toISOString().slice(0, 10)}.json`);
-  }
-
   async function doImport(file: File) {
+    setBusy(true);
     try {
       const result = await importBackup(file);
       setStatus({ kind: "ok", text: `Backup importiert: ${result.subjects} Fächer, ${result.tests} Tests.` });
     } catch (e) {
-      setStatus({ kind: "error", text: describeError(e) });
+      setStatus({ kind: "error", text: e instanceof Error ? e.message : String(e) });
+    } finally {
+      setBusy(false);
     }
   }
 
   async function wipe() {
-    if (!confirm("Wirklich ALLE Fächer, Materialien, Tests und Ergebnisse löschen? Das kann nicht rückgängig gemacht werden."))
-      return;
-    await Promise.all([db.subjects.clear(), db.materials.clear(), db.tests.clear(), db.attempts.clear()]);
+    const ok = await confirmDialog(
+      "Alle Fächer, Materialien, Tests und Ergebnisse werden gelöscht. Das kann nicht rückgängig gemacht werden.",
+      { title: "Alle Daten löschen?", confirmLabel: "Alles löschen", danger: true },
+    );
+    if (!ok) return;
+    repo.clearAll();
     setStatus({ kind: "info", text: "Alle Daten wurden gelöscht." });
   }
 
@@ -69,101 +62,35 @@ export default function SettingsPage() {
         <h1>Einstellungen</h1>
       </div>
 
-      {status && <div className={`callout callout-${status.kind === "ok" ? "ok" : status.kind === "error" ? "error" : ""}`}>{status.text}</div>}
-
-      <section className="card stack-sm">
-        <h2>Claude-API-Schlüssel</h2>
-        <p className="muted small">
-          Die App nutzt Claude, um Tests aus deinem Material zu erstellen und offene Antworten zu bewerten. Einen
-          Schlüssel bekommst du in der{" "}
-          <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noreferrer">
-            Anthropic Console
-          </a>
-          . Die Nutzung wird dort nach Verbrauch abgerechnet.
-        </p>
-        <div className="row-wrap">
-          <input
-            className="input grow"
-            type={showKey ? "text" : "password"}
-            placeholder="sk-ant-…"
-            value={keyInput}
-            autoComplete="off"
-            spellCheck={false}
-            onChange={(e) => setKeyInput(e.target.value)}
-            aria-label="API-Schlüssel"
-          />
-          <button className="btn btn-ghost" onClick={() => setShowKey((s) => !s)}>
-            {showKey ? "Verbergen" : "Anzeigen"}
-          </button>
-        </div>
-        <div className="row-wrap">
-          <button className="btn btn-primary" onClick={saveKey}>
-            Speichern
-          </button>
-          <button className="btn btn-ghost" onClick={testConnection} disabled={!keyInput.trim() || testing}>
-            {testing ? "Teste …" : "Verbindung testen"}
-          </button>
-        </div>
-        <p className="muted small">
-          🔒 Der Schlüssel wird nur in diesem Browser gespeichert und direkt an api.anthropic.com gesendet – es gibt
-          keinen eigenen Server. Nutze die App nur auf deinem eigenen Gerät.
-        </p>
-      </section>
-
-      <section className="card stack-sm">
-        <h2>KI-Modelle</h2>
-        <div className="form-grid">
-          <label className="field">
-            <span>Tests erstellen</span>
-            <select
-              className="select"
-              value={settings.generationModel}
-              onChange={(e) => saveSettings({ generationModel: e.target.value })}
-            >
-              {MODELS.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.label} – {m.hint}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="field">
-            <span>Antworten bewerten</span>
-            <select
-              className="select"
-              value={settings.gradingModel}
-              onChange={(e) => saveSettings({ gradingModel: e.target.value })}
-            >
-              {MODELS.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.label} – {m.hint}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-        <p className="muted small">
-          Für das Bewerten offener Antworten reicht oft ein günstigeres Modell. Auswahlfragen, Zahlen und exakte
-          Kurzantworten werden ohne KI direkt in der App ausgewertet.
-        </p>
-      </section>
+      <platform.AiSettingsSection />
 
       <section className="card stack-sm">
         <h2>Daten</h2>
+        {status && (
+          <div
+            className={`callout ${status.kind === "ok" ? "callout-ok" : status.kind === "error" ? "callout-error" : ""}`}
+          >
+            {status.text}
+          </div>
+        )}
         <p className="muted small">
-          Alle Fächer, Materialien, Tests und Ergebnisse liegen lokal in diesem Browser{usage ? ` (${usage})` : ""}.
-          Erstelle ab und zu ein Backup – z. B. bevor du Browserdaten löschst oder das Gerät wechselst.
+          {IS_ARTIFACT
+            ? "Deine Fächer, Materialien, Tests und Ergebnisse werden in deinem privaten Bereich dieses Artifacts gespeichert und sind auf allen Geräten verfügbar, auf denen du claude.ai nutzt. Andere Personen sehen sie nicht."
+            : `Alle Fächer, Materialien, Tests und Ergebnisse liegen lokal in diesem Browser${usage ? ` (${usage})` : ""}. Erstelle ab und zu ein Backup – z. B. bevor du Browserdaten löschst oder das Gerät wechselst.`}{" "}
+          Ein Backup kannst du auch in die jeweils andere Version der Lern-App (Web bzw. claude.ai) importieren.
         </p>
         <div className="row-wrap">
-          <button className="btn btn-ghost" onClick={doExport}>
+          <button className="btn btn-ghost" onClick={doExport} disabled={busy}>
             ⬇️ Backup herunterladen
           </button>
-          <label className="btn btn-ghost file-btn">
+          <label className={`btn btn-ghost file-btn ${busy ? "disabled" : ""}`}>
             ⬆️ Backup importieren
             <input
+              id="backup-import"
               type="file"
               accept="application/json,.json"
               hidden
+              disabled={busy}
               onChange={(e) => {
                 const file = e.target.files?.[0];
                 e.target.value = "";
@@ -171,7 +98,7 @@ export default function SettingsPage() {
               }}
             />
           </label>
-          <button className="btn btn-ghost btn-danger" onClick={wipe}>
+          <button className="btn btn-ghost btn-danger" onClick={wipe} disabled={busy}>
             Alle Daten löschen
           </button>
         </div>
