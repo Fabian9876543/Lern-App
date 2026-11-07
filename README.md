@@ -48,7 +48,8 @@ npm run build:artifact
 ```
 
 Das erzeugt `dist-artifact/lern-app.html` (die Seite) und `dist-artifact/publish-files.json` (die Dateien, die
-mitveröffentlicht werden). Veröffentlicht wird das Ganze als Artifact in claude.ai mit den Fähigkeiten
+mitveröffentlicht werden). Die aktuelle Version ist als privates Artifact veröffentlicht:
+https://claude.ai/artifact/MTV2Uc8zvLPnYHmZyfscWR Veröffentlicht wird das Ganze als Artifact in claude.ai mit den Fähigkeiten
 `sample` (mit Bildern), `db`, `user`, `assets` und `downloads`.
 
 ### Web-Version
