@@ -1,6 +1,6 @@
 # Lern-App – Corporate Identity
 
-**Version 1.0 · Stand: 8. November 2026**
+**Version 1.1 · Stand: 8. November 2026**
 Abgeleitet aus der Lern-App (Repository `Lern-App`, Code-Stand vom 8. November 2026) und für das Marketing ergänzt.
 
 Diese Datei ist die verbindliche Referenz für alle Inhalte, die für die Lern-App erstellt werden – von Menschen
@@ -368,7 +368,7 @@ einen Proof anfordern.
 
 ### Statusfarben (nur für Ergebnisse und Hinweise)
 
-| Status | Grundfarbe | Textvariante [Neu] | Fläche | Symbol |
+| Status | Grundfarbe | Textvariante [App] | Fläche | Symbol |
 | --- | --- | --- | --- | --- |
 | Richtig | `#059669` | `#047857` | `#E7F8F1` | ✓ |
 | Teilweise | `#C2790A` | `#B45309` | `#FFF5E1` | ½ |
@@ -640,8 +640,10 @@ klein unten rechts; höchstens eine Kernaussage pro Folie.
 - **Videos:** Untertitel; keine schnell blinkenden Effekte.
 - **Bewegung:** Animationen sparsam; Inhalte auch ohne Animation verständlich.
 
-> **Hinweis für die App:** Die Bewertungslabels in Grün und Orange erreichen in der App derzeit nur 3,4–3,8 : 1.
-> Empfehlung: die Textvarianten `#047857` und `#B45309` aus dieser CI in der App übernehmen.
+> **In der App umgesetzt (Version 1.1):** Alle Schrift in Statusfarben nutzt im hellen Design die Textvarianten
+> (`#047857`, `#B45309`, `#B91C1C`) und erreicht mindestens 4,5 : 1; im dunklen Design bleiben die hellen
+> Statusfarben, die dort mindestens 5,4 : 1 erreichen. Grundfarben werden nur noch für Rahmen, Balken und Symbole
+> verwendet.
 
 ---
 
@@ -835,4 +837,5 @@ klein unten rechts; höchstens eine Kernaussage pro Folie.
 
 | Version | Datum | Änderung |
 | --- | --- | --- |
+| 1.1 | 8. November 2026 | Textvarianten der Statusfarben in der App übernommen (Token `--correct-text`, `--partial-text`, `--wrong-text`). |
 | 1.0 | 8. November 2026 | Erste Fassung, abgeleitet aus der Lern-App; Marketing-Schrift, Textvarianten der Statusfarben, Wortmarke, Bildsprache und Formate neu festgelegt. |

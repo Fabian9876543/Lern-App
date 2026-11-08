@@ -15,6 +15,10 @@
   --partial-soft: #fff5e1;
   --wrong: #dc2626;
   --wrong-soft: #fdeceb;
+  /* Textvarianten der Statusfarben: mindestens 4,5 : 1 auf allen hellen Flächen */
+  --correct-text: #047857;
+  --partial-text: #b45309;
+  --wrong-text: #b91c1c;
   --warn-soft: #fff8e6;
   --warn-border: #f2d38a;
   --role-tasks: #2563eb;
@@ -45,6 +49,9 @@
     --partial-soft: #352a12;
     --wrong: #f87171;
     --wrong-soft: #3a1b1d;
+    --correct-text: #34d399;
+    --partial-text: #fbbf24;
+    --wrong-text: #f87171;
     --warn-soft: #2e2814;
     --warn-border: #5e4d1d;
     --role-tasks: #93c5fd;
@@ -73,6 +80,9 @@
   --partial-soft: #352a12;
   --wrong: #f87171;
   --wrong-soft: #3a1b1d;
+  --correct-text: #34d399;
+  --partial-text: #fbbf24;
+  --wrong-text: #f87171;
   --warn-soft: #2e2814;
   --warn-border: #5e4d1d;
   --role-tasks: #93c5fd;
@@ -425,7 +435,7 @@ input[type="range"] {
   background: var(--surface-2);
 }
 .btn-danger {
-  color: var(--wrong);
+  color: var(--wrong-text);
 }
 .btn-danger-solid {
   background: var(--wrong);
@@ -492,23 +502,23 @@ input[type="range"] {
 .chip-easy,
 .chip-correct {
   background: var(--correct-soft);
-  color: var(--correct);
+  color: var(--correct-text);
 }
 .chip-medium,
 .chip-partial {
   background: var(--partial-soft);
-  color: var(--partial);
+  color: var(--partial-text);
 }
 .chip-hard,
 .chip-wrong {
   background: var(--wrong-soft);
-  color: var(--wrong);
+  color: var(--wrong-text);
 }
 .role-tasks {
   color: var(--role-tasks);
 }
 .role-solutions {
-  color: var(--correct);
+  color: var(--correct-text);
 }
 .role-tasks_with_solutions {
   color: var(--role-both);
@@ -543,12 +553,12 @@ input[type="range"] {
 .callout-error {
   background: var(--wrong-soft);
   border-color: color-mix(in srgb, var(--wrong) 35%, transparent);
-  color: var(--wrong);
+  color: var(--wrong-text);
 }
 .callout-ok {
   background: var(--correct-soft);
   border-color: color-mix(in srgb, var(--correct) 35%, transparent);
-  color: var(--correct);
+  color: var(--correct-text);
 }
 
 .muted {
@@ -558,7 +568,7 @@ input[type="range"] {
   font-size: 0.86rem;
 }
 .error-text {
-  color: var(--wrong);
+  color: var(--wrong-text);
   font-size: 0.9rem;
   margin: 0;
 }
@@ -809,7 +819,7 @@ p {
   padding-left: 1.2rem;
 }
 .preview-options li.correct {
-  color: var(--correct);
+  color: var(--correct-text);
   font-weight: 600;
 }
 .preview-options li.correct::marker {
@@ -859,17 +869,17 @@ p {
 }
 .q-dot.correct {
   background: var(--correct-soft);
-  color: var(--correct);
+  color: var(--correct-text);
   border-color: transparent;
 }
 .q-dot.partial {
   background: var(--partial-soft);
-  color: var(--partial);
+  color: var(--partial-text);
   border-color: transparent;
 }
 .q-dot.wrong {
   background: var(--wrong-soft);
-  color: var(--wrong);
+  color: var(--wrong-text);
   border-color: transparent;
 }
 .q-dot.current {
@@ -1035,15 +1045,15 @@ p {
 }
 .verdict-correct {
   background: var(--correct-soft);
-  color: var(--correct);
+  color: var(--correct-text);
 }
 .verdict-partial {
   background: var(--partial-soft);
-  color: var(--partial);
+  color: var(--partial-text);
 }
 .verdict-wrong {
   background: var(--wrong-soft);
-  color: var(--wrong);
+  color: var(--wrong-text);
 }
 .verdict-open {
   background: var(--surface-2);
@@ -1352,7 +1362,7 @@ details.solution-box[open] > summary {
   margin-left: auto;
 }
 .importance-high {
-  color: var(--wrong);
+  color: var(--wrong-text);
 }
 .importance-low {
   color: var(--muted);
@@ -1363,13 +1373,13 @@ details.solution-box[open] > summary {
   margin: 0;
 }
 .placement-note.good {
-  color: var(--correct);
+  color: var(--correct-text);
 }
 .placement-note.mid {
-  color: var(--partial);
+  color: var(--partial-text);
 }
 .placement-note.low {
-  color: var(--wrong);
+  color: var(--wrong-text);
 }
 .topic-details > summary {
   cursor: pointer;
