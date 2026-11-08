@@ -21,7 +21,7 @@ import { TIERS, getSettings } from "../../settings";
 import type { AnswerResponse, Material, Question, Test } from "../../types";
 import { formatLongDate } from "../../lib/planner";
 import type { AiGrade, AiStatus, GenerateParams, TopicAnalysisParams } from "../types";
-import { artifactBackend } from "./backend";
+import { artifactBackend } from "./storage";
 import { isSampleError, useCapability, type SampleFn } from "./claude";
 
 export class AiResponseError extends Error {}

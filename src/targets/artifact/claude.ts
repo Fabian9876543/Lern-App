@@ -66,6 +66,8 @@ export interface Db {
 
 export interface UserCap {
   id(): Promise<string | null>;
+  canEdit(): Promise<boolean>;
+  can(capability: string): Promise<boolean | null>;
 }
 
 export interface AssetsCap {

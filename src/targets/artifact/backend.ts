@@ -34,7 +34,21 @@ function toJson(record: object): Record<string, unknown> {
   return JSON.parse(JSON.stringify(record, (k, v) => (k === "blob" ? undefined : v)));
 }
 
-export const artifactBackend: Backend = {
+/**
+ * Darf diese Person im Artifact speichern? Nur dann: Bearbeiter (oder in einer
+ * Organisation Mitwirkende mit Schreibrecht), mit eigener ID und Datei-Upload.
+ * Wer das Artifact nur über einen geteilten Link öffnet, darf das nicht.
+ */
+export async function canUseCloudStorage(): Promise<boolean> {
+  const [db, user, assets] = await Promise.all([useCapability("db"), useCapability("user"), useCapability("assets")]);
+  if (!db || !user || !assets) return false;
+  if (!(await user.id())) return false;
+  if (await user.canEdit()) return true;
+  return (await user.can("data.write")) === true;
+}
+
+export const cloudBackend: Backend = {
+  mode: () => "cloud",
   async start(onData, onError) {
     await getRoot();
     let pending = new Set<TableName>(TABLES);

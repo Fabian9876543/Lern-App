@@ -13,9 +13,18 @@ Eine persönliche Lern-App: Du lädst deine Lernmaterialien hoch, und die App ma
 | --- | --- | --- |
 | KI | über dein Claude-Abo (Pro/Max) – keine API-Kosten | über einen Claude-API-Schlüssel (Abrechnung nach Verbrauch) |
 | Läuft | als Artifact in claude.ai (Web, Desktop, App) | eigenständig im Browser, z. B. über GitHub Pages |
-| Daten | privat im Artifact gespeichert, auf allen Geräten gleich | lokal im Browser (IndexedDB) |
+| Daten | privat im Artifact gespeichert, auf allen Geräten gleich (Gäste: nur im eigenen Browser) | lokal im Browser (IndexedDB) |
 | PDFs | Text wird im Browser ausgelesen; eingescannte Seiten und Fotos gehen als Bild an Claude (verkleinert auf ca. 1,2 MP, begrenzte Anzahl pro Test) | Claude liest PDFs direkt (bis ca. 30 MB pro Test) |
 | Modellwahl | Stufen: Am stärksten / Standard / Schnell | konkrete Modelle (Opus, Sonnet, Haiku) |
+
+### Die claude.ai-Version teilen
+
+Wer das Artifact über einen geteilten Link öffnet, nutzt die App im **Gastmodus**: Claude läuft über das eigene
+Claude-Konto, Fächer, Materialien und Ergebnisse werden nur im eigenen Browser gespeichert (nicht auf anderen Geräten,
+für niemanden sonst sichtbar; Backup über die Einstellungen). Deine eigenen Daten bleiben privat. Wer per E-Mail als
+Bearbeiter eingeladen ist, speichert wie du im Artifact – kann dann aber auch die App selbst verändern und die
+hochgeladenen Dateien des Artifacts sehen. Ob Claude-Aufrufe aus Artifacts mit dem kostenlosen Claude-Abo funktionieren,
+legt claude.ai fest; die App zeigt eine Meldung, wenn Claude für ein Konto nicht verfügbar ist.
 
 Beide Varianten entstehen aus demselben Code (`src/targets/artifact` bzw. `src/targets/web`). Über
 **Einstellungen → Backup** lassen sich die Daten zwischen den Varianten umziehen.

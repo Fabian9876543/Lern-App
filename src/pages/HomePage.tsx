@@ -10,7 +10,22 @@ import { repo, useStore } from "../store/store";
 const COLORS = ["#4f46e5", "#0891b2", "#059669", "#d97706", "#dc2626", "#db2777", "#7c3aed", "#475569"];
 
 export default function HomePage() {
-  const { subjects, materials, tests, attempts, plans } = useStore();
+  const { subjects, materials, tests, attempts, plans, storageMode } = useStore();
+  const [guestNoteHidden, setGuestNoteHidden] = useState(() => {
+    try {
+      return localStorage.getItem("lern-app-guest-note") === "hidden";
+    } catch {
+      return false;
+    }
+  });
+  function hideGuestNote() {
+    setGuestNoteHidden(true);
+    try {
+      localStorage.setItem("lern-app-guest-note", "hidden");
+    } catch {
+      // nicht kritisch
+    }
+  }
   const ai = platform.useAiStatus();
   const [name, setName] = useState("");
 
@@ -55,6 +70,25 @@ export default function HomePage() {
         </div>
       )}
 
+      {IS_ARTIFACT && storageMode === "local" && !guestNoteHidden && (
+        <div className="callout row-between" role="note">
+          <span>
+            <strong>Gastmodus:</strong> Deine Fächer, Materialien und Ergebnisse werden nur in diesem Browser gespeichert
+            – nicht auf anderen Geräten, und niemand sonst sieht sie. Claude läuft über dein eigenes Konto. Lege ab und zu
+            unter <a href="#/settings">Einstellungen</a> ein Backup an.
+          </span>
+          <button className="btn btn-ghost btn-sm" onClick={hideGuestNote}>
+            Verstanden
+          </button>
+        </div>
+      )}
+      {storageMode === "memory" && (
+        <div className="callout callout-warn" role="alert">
+          <strong>Achtung:</strong> Dieser Browser lässt die Lern-App nichts speichern. Alles, was du anlegst, ist nach dem
+          Neuladen weg – lade dir vorher unter <a href="#/settings">Einstellungen</a> ein Backup herunter.
+        </div>
+      )}
+
       {subjects.length === 0 && (
         <section className="card hero">
           <h1>Lerne mit Tests aus deinem eigenen Material</h1>
@@ -72,8 +106,8 @@ export default function HomePage() {
           </ol>
           {IS_ARTIFACT && (
             <p className="muted small">
-              Läuft über dein Claude-Abo – keine API-Kosten. Deine Daten sind auf allen Geräten verfügbar, auf denen du
-              claude.ai nutzt.
+              Läuft über dein Claude-Konto – keine API-Kosten.
+              {storageMode === "cloud" && " Deine Daten sind auf allen Geräten verfügbar, auf denen du claude.ai nutzt."}
             </p>
           )}
         </section>

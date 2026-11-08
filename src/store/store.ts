@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from "react";
 import { backend } from "@platform-impl";
 import type { Attempt, Material, StudyPlan, Subject, Test } from "../types";
-import { TABLES, type TableName, type Tables } from "./types";
+import { TABLES, type StorageMode, type TableName, type Tables } from "./types";
 
 /**
  * Zentrale Datenhaltung im Speicher. Alle Seiten lesen hieraus; Änderungen
@@ -11,6 +11,8 @@ import { TABLES, type TableName, type Tables } from "./types";
 export interface StoreState {
   ready: boolean;
   error: string | null;
+  /** Wo die Daten liegen (erst nach dem Laden bekannt). */
+  storageMode: StorageMode | null;
   subjects: Subject[];
   materials: Material[];
   tests: Test[];
@@ -21,6 +23,7 @@ export interface StoreState {
 let state: StoreState = {
   ready: false,
   error: null,
+  storageMode: null,
   subjects: [],
   materials: [],
   tests: [],
@@ -118,9 +121,12 @@ let started = false;
 export function startStore(): void {
   if (started) return;
   started = true;
-  backend.start(applyRemote, (message) => setState({ error: message })).catch((e) => {
-    setState({ error: errorText(e) });
-  });
+  backend
+    .start(applyRemote, (message) => setState({ error: message }))
+    .then(() => setState({ storageMode: backend.mode() }))
+    .catch((e) => {
+      setState({ error: errorText(e) });
+    });
 }
 
 export function dismissError(): void {

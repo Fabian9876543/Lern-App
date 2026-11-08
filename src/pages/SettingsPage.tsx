@@ -4,20 +4,21 @@ import { confirmDialog } from "../components/Dialogs";
 import { exportBackup, importBackup } from "../lib/backup";
 import { formatBytes } from "../lib/files";
 import { IS_ARTIFACT } from "../platform";
-import { repo } from "../store/store";
+import { repo, useStore } from "../store/store";
 
 export default function SettingsPage() {
   const [status, setStatus] = useState<{ kind: "ok" | "error" | "info"; text: string } | null>(null);
   const [usage, setUsage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const { storageMode } = useStore();
 
   useEffect(() => {
-    if (IS_ARTIFACT) return;
+    if (storageMode !== "local") return;
     navigator.storage
       ?.estimate?.()
       .then((e) => setUsage(`${formatBytes(e.usage ?? 0)} von ca. ${formatBytes(e.quota ?? 0)} belegt`))
       .catch(() => {});
-  }, []);
+  }, [storageMode]);
 
   async function doExport() {
     setBusy(true);
@@ -74,9 +75,11 @@ export default function SettingsPage() {
           </div>
         )}
         <p className="muted small">
-          {IS_ARTIFACT
+          {storageMode === "cloud"
             ? "Deine Fächer, Materialien, Tests und Ergebnisse werden in deinem privaten Bereich dieses Artifacts gespeichert und sind auf allen Geräten verfügbar, auf denen du claude.ai nutzt. Andere Personen sehen sie nicht."
-            : `Alle Fächer, Materialien, Tests und Ergebnisse liegen lokal in diesem Browser${usage ? ` (${usage})` : ""}. Erstelle ab und zu ein Backup – z. B. bevor du Browserdaten löschst oder das Gerät wechselst.`}{" "}
+            : storageMode === "memory"
+              ? "Dieser Browser lässt die Lern-App nichts speichern – nach dem Neuladen ist alles weg. Lade vorher ein Backup herunter."
+              : `${IS_ARTIFACT ? "Gastmodus: " : ""}Alle Fächer, Materialien, Tests und Ergebnisse liegen nur in diesem Browser${usage ? ` (${usage})` : ""}. Erstelle ab und zu ein Backup – z. B. bevor du Browserdaten löschst oder das Gerät wechselst.`}{" "}
           Ein Backup kannst du auch in die jeweils andere Version der Lern-App (Web bzw. claude.ai) importieren.
         </p>
         <div className="row-wrap">

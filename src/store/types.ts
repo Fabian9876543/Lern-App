@@ -11,8 +11,16 @@ export interface Tables {
 export type TableName = keyof Tables;
 export const TABLES: TableName[] = ["subjects", "materials", "tests", "attempts", "plans"];
 
+/**
+ * Wo die Daten liegen: "cloud" = Artifact-Speicher in claude.ai (alle Geräte),
+ * "local" = nur in diesem Browser, "memory" = gar nicht dauerhaft.
+ */
+export type StorageMode = "cloud" | "local" | "memory";
+
 /** Wo und wie Daten dauerhaft gespeichert werden (IndexedDB oder claude.ai). */
 export interface Backend {
+  /** Speicherort nach dem Start. */
+  mode(): StorageMode;
   /**
    * Lädt alle Daten. `onData` wird für jede Tabelle mindestens einmal aufgerufen,
    * bei Live-Speichern auch später bei Änderungen (z. B. von einem anderen Gerät).

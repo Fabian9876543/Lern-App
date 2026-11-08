@@ -25,6 +25,7 @@ db.version(2).stores({
 });
 
 export const dexieBackend: Backend = {
+  mode: () => "local",
   async start(onData) {
     try {
       if (navigator.storage?.persist && !(await navigator.storage.persisted())) await navigator.storage.persist();
