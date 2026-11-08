@@ -1,14 +1,15 @@
-import type { Attempt, Material, Subject, Test } from "../types";
+import type { Attempt, Material, StudyPlan, Subject, Test } from "../types";
 
 export interface Tables {
   subjects: Subject;
   materials: Material;
   tests: Test;
   attempts: Attempt;
+  plans: StudyPlan;
 }
 
 export type TableName = keyof Tables;
-export const TABLES: TableName[] = ["subjects", "materials", "tests", "attempts"];
+export const TABLES: TableName[] = ["subjects", "materials", "tests", "attempts", "plans"];
 
 /** Wo und wie Daten dauerhaft gespeichert werden (IndexedDB oder claude.ai). */
 export interface Backend {

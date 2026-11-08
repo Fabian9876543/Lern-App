@@ -1,21 +1,26 @@
 import { useSyncExternalStore } from "react";
-import { coerceGeneratedTest, coerceGrading } from "../../ai/coerce";
-import { countQuestions, describeCorrectAnswer, normalizeQuestions } from "../../ai/normalize";
+import { coerceGeneratedTest, coerceGrading, coerceTopicAnalysis } from "../../ai/coerce";
+import { countJsonKey, countQuestions, describeCorrectAnswer, normalizeQuestions } from "../../ai/normalize";
 import {
   GENERATION_SYSTEM_PROMPT,
   GRADING_JSON_FORMAT,
   GRADING_SYSTEM_PROMPT,
   TEST_JSON_FORMAT,
+  TOPIC_JSON_FORMAT,
+  TOPIC_SYSTEM_PROMPT,
   buildTaskInstruction,
+  buildTopicInstruction,
   gradingUserText,
 } from "../../ai/prompts";
+import type { TopicAnalysis } from "../../ai/schemas";
 import { ROLE_LABELS } from "../../lib/files";
 import { verdictFromScore } from "../../lib/grading";
 import { newId } from "../../lib/ids";
 import { closePdf, openPdf, pageText, renderPage } from "../../lib/pdf";
 import { TIERS, getSettings } from "../../settings";
 import type { AnswerResponse, Material, Question, Test } from "../../types";
-import type { AiGrade, AiStatus, GenerateParams } from "../types";
+import { formatLongDate } from "../../lib/planner";
+import type { AiGrade, AiStatus, GenerateParams, TopicAnalysisParams } from "../types";
 import { artifactBackend } from "./backend";
 import { isSampleError, useCapability, type SampleFn } from "./claude";
 
@@ -124,21 +129,6 @@ export async function generateTest(params: GenerateParams): Promise<Test> {
 
   onProgress?.({ phase: "preparing", questionsSoFar: 0 });
   const prepared = await prepareMaterials(materials);
-  const limits = await sample.limits().catch(() => null);
-
-  if (prepared.images.length > 0) {
-    const max = limits?.images?.maxCount ?? 0;
-    if (max === 0) {
-      throw new AiResponseError(
-        "In dieser Ansicht können keine Bilder an Claude geschickt werden. Nutze PDFs mit Text oder Textdateien.",
-      );
-    }
-    if (prepared.images.length > max) {
-      throw new AiResponseError(
-        `Die Auswahl enthält ${prepared.images.length} Bilder bzw. eingescannte Seiten – pro Test gehen höchstens ${max}. Bitte weniger Material auswählen.`,
-      );
-    }
-  }
 
   const prompt = `${GENERATION_SYSTEM_PROMPT}
 
@@ -149,14 +139,7 @@ ${prepared.text}
 </materialien>
 ${prepared.images.length ? `\nDazu sind ${prepared.images.length} Bilder beigefügt, nummeriert in der Reihenfolge, in der sie oben erwähnt werden.\n` : ""}
 ${buildTaskInstruction(settings)}`;
-
-  const maxBytes = limits?.maxPromptBytes ?? 262_144;
-  const bytes = new TextEncoder().encode(prompt).length;
-  if (bytes > maxBytes) {
-    throw new AiResponseError(
-      `Das Material ist zu umfangreich (${Math.round(bytes / 1024)} KB Text, höchstens ${Math.round(maxBytes / 1024)} KB pro Test). Bitte weniger Dateien auswählen.`,
-    );
-  }
+  await checkLimits(sample, prompt, prepared.images.length);
 
   onProgress?.({ phase: "analyzing", questionsSoFar: 0 });
   const raw = await sample.json(prompt, {
@@ -191,6 +174,65 @@ ${buildTaskInstruction(settings)}`;
     createdAt: Date.now(),
     model: `claude.ai – ${TIERS.find((t) => t.id === tier)?.label ?? tier}`,
   };
+}
+
+/** Prüft Textmenge und Bildanzahl gegen die Grenzen dieser Ansicht. */
+async function checkLimits(sample: SampleFn, prompt: string, imageCount: number): Promise<void> {
+  const limits = await sample.limits().catch(() => null);
+  if (imageCount > 0) {
+    const max = limits?.images?.maxCount ?? 0;
+    if (max === 0) {
+      throw new AiResponseError(
+        "In dieser Ansicht können keine Bilder an Claude geschickt werden. Nutze PDFs mit Text oder Textdateien.",
+      );
+    }
+    if (imageCount > max) {
+      throw new AiResponseError(
+        `Die Auswahl enthält ${imageCount} Bilder bzw. eingescannte Seiten – pro Anfrage gehen höchstens ${max}. Bitte weniger Material auswählen.`,
+      );
+    }
+  }
+  const maxBytes = limits?.maxPromptBytes ?? 262_144;
+  const bytes = new TextEncoder().encode(prompt).length;
+  if (bytes > maxBytes) {
+    throw new AiResponseError(
+      `Das Material ist zu umfangreich (${Math.round(bytes / 1024)} KB Text, höchstens ${Math.round(maxBytes / 1024)} KB pro Anfrage). Bitte weniger Dateien auswählen.`,
+    );
+  }
+}
+
+// ---------- Lernplan: Themen ----------
+
+export async function analyzeTopics(params: TopicAnalysisParams): Promise<TopicAnalysis> {
+  const { materials, signal, onProgress } = params;
+  const sample = await requireSample();
+  onProgress?.({ phase: "preparing", questionsSoFar: 0 });
+  const prepared = await prepareMaterials(materials);
+  const instruction = buildTopicInstruction({
+    examDateLabel: formatLongDate(params.examDate),
+    daysUntilExam: params.daysUntilExam,
+    availableMinutes: params.availableMinutes,
+    focus: params.focus,
+    givenTopics: params.givenTopics,
+    hasMaterials: materials.length > 0,
+  });
+  const materialPart = materials.length ? `\n<materialien>\n${prepared.text}\n</materialien>\n` : "";
+  const imagePart = prepared.images.length
+    ? `\nDazu sind ${prepared.images.length} Bilder beigefügt, nummeriert in der Reihenfolge, in der sie oben erwähnt werden.\n`
+    : "";
+  const prompt = `${TOPIC_SYSTEM_PROMPT}\n\n${TOPIC_JSON_FORMAT}\n${materialPart}${imagePart}\n${instruction}`;
+  await checkLimits(sample, prompt, prepared.images.length);
+  onProgress?.({ phase: "analyzing", questionsSoFar: 0 });
+  const raw = await sample.json(prompt, {
+    modelTier: getSettings().generationTier,
+    images: prepared.images.length ? prepared.images : undefined,
+    cache: false,
+    signal,
+    onText: ({ text }) => onProgress?.({ phase: "writing", questionsSoFar: countJsonKey(text, "name") }),
+  });
+  const parsed = coerceTopicAnalysis(raw);
+  if (parsed.topics.length === 0) throw new AiResponseError("Claude hat keine Themen gefunden. Bitte erneut versuchen.");
+  return parsed;
 }
 
 // ---------- Antworten bewerten ----------

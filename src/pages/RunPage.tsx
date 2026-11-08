@@ -6,6 +6,7 @@ import Markdown from "../components/Markdown";
 import QuestionMeta from "../components/QuestionMeta";
 import { confirmDialog } from "../components/Dialogs";
 import { attemptQuestions, evaluateAnswer, selfGrade } from "../lib/attempts";
+import { onAttemptFinished } from "../lib/plans";
 import { hasAnswer } from "../lib/grading";
 import { navigate } from "../router";
 import { getState, repo, useStore } from "../store/store";
@@ -170,6 +171,7 @@ function Runner({ attempt, test }: { attempt: Attempt; test: Test }) {
       repo.updateAttempt(attempt.id, { answers });
     }
     repo.updateAttempt(attempt.id, { status: "finished", finishedAt: Date.now() });
+    onAttemptFinished(attempt.id);
     navigate(`/result/${attempt.id}`, { replace: true });
   }
 

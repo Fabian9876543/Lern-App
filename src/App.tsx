@@ -7,6 +7,8 @@ import { dismissError, useStore } from "./store/store";
 import HomePage from "./pages/HomePage";
 import SubjectPage from "./pages/SubjectPage";
 import NewTestPage from "./pages/NewTestPage";
+import NewPlanPage from "./pages/NewPlanPage";
+import PlanPage from "./pages/PlanPage";
 import TestPage from "./pages/TestPage";
 import RunPage from "./pages/RunPage";
 import ResultPage from "./pages/ResultPage";
@@ -20,6 +22,8 @@ export default function App() {
   let page: ReactNode;
   const [section, id, sub] = route;
   if (section === "subject" && id && sub === "new-test") page = <NewTestPage subjectId={id} />;
+  else if (section === "subject" && id && sub === "new-plan") page = <NewPlanPage subjectId={id} />;
+  else if (section === "plan" && id) page = <PlanPage planId={id} />;
   else if (section === "subject" && id) page = <SubjectPage subjectId={id} />;
   else if (section === "test" && id) page = <TestPage testId={id} />;
   else if (section === "run" && id) page = <RunPage attemptId={id} />;

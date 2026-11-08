@@ -1,5 +1,6 @@
 import type { ComponentType } from "react";
 import type { Backend } from "../store/types";
+import type { TopicAnalysis } from "../ai/schemas";
 import type { AnswerResponse, GenerationSettings, Material, Question, Test, Verdict } from "../types";
 
 export type GenerationPhase = "preparing" | "analyzing" | "writing";
@@ -13,6 +14,18 @@ export interface GenerateParams {
   subjectId: string;
   materials: Material[];
   settings: GenerationSettings;
+  signal?: AbortSignal;
+  onProgress?: (p: GenerationProgress) => void;
+}
+
+export interface TopicAnalysisParams {
+  materials: Material[];
+  examDate: string;
+  daysUntilExam: number;
+  availableMinutes: number;
+  focus: string;
+  /** Vom Lernenden vorgegebene Themen – nur ergänzen, keine neuen. */
+  givenTopics?: string[];
   signal?: AbortSignal;
   onProgress?: (p: GenerationProgress) => void;
 }
@@ -35,6 +48,8 @@ export interface PlatformImpl {
   backend: Backend;
   generateTest(params: GenerateParams): Promise<Test>;
   gradeWithAi(question: Question, response: AnswerResponse, signal?: AbortSignal): Promise<AiGrade>;
+  /** Lernplan: Themen aus dem Material ermitteln oder vorgegebene Themen ergänzen. */
+  analyzeTopics(params: TopicAnalysisParams): Promise<TopicAnalysis>;
   describeError(error: unknown): string;
   /** Synchroner Schnappschuss des KI-Status (für Code außerhalb von Komponenten). */
   aiStatus(): AiStatus;

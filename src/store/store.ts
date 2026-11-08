@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from "react";
 import { backend } from "@platform-impl";
-import type { Attempt, Material, Subject, Test } from "../types";
+import type { Attempt, Material, StudyPlan, Subject, Test } from "../types";
 import { TABLES, type TableName, type Tables } from "./types";
 
 /**
@@ -15,9 +15,18 @@ export interface StoreState {
   materials: Material[];
   tests: Test[];
   attempts: Attempt[];
+  plans: StudyPlan[];
 }
 
-let state: StoreState = { ready: false, error: null, subjects: [], materials: [], tests: [], attempts: [] };
+let state: StoreState = {
+  ready: false,
+  error: null,
+  subjects: [],
+  materials: [],
+  tests: [],
+  attempts: [],
+  plans: [],
+};
 const listeners = new Set<() => void>();
 const loaded = new Set<TableName>();
 
@@ -144,6 +153,7 @@ export const repo = {
   getTest: (id: string) => find("tests", id),
   getAttempt: (id: string) => find("attempts", id),
   getMaterial: (id: string) => find("materials", id),
+  getPlan: (id: string) => find("plans", id),
 
   addSubject(s: Subject) {
     upsert("subjects", s);
@@ -156,6 +166,7 @@ export const repo = {
     const materials = state.materials.filter((m) => m.subjectId === id);
     materials.forEach((m) => void backend.deleteMaterialContent(m).catch(() => {}));
     removeLocal("attempts", state.attempts.filter((a) => a.subjectId === id).map((a) => a.id));
+    removeLocal("plans", state.plans.filter((p) => p.subjectId === id).map((p) => p.id));
     removeLocal("tests", state.tests.filter((t) => t.subjectId === id).map((t) => t.id));
     removeLocal("materials", materials.map((m) => m.id));
     removeLocal("subjects", [id]);
@@ -198,6 +209,23 @@ export const repo = {
     const a = find("attempts", id);
     if (!a) return;
     upsert("attempts", typeof patch === "function" ? patch(a) : { ...a, ...patch });
+  },
+
+  addPlan(p: StudyPlan) {
+    upsert("plans", p);
+  },
+  updatePlan(id: string, patch: Partial<StudyPlan> | ((p: StudyPlan) => StudyPlan)) {
+    const p = find("plans", id);
+    if (!p) return;
+    const next = typeof patch === "function" ? patch(p) : { ...p, ...patch };
+    upsert("plans", { ...next, updatedAt: Date.now() });
+  },
+  /** Löscht den Plan samt der Tests, die nur für ihn erstellt wurden. */
+  deletePlan(id: string) {
+    const testIds = state.tests.filter((t) => t.planId === id).map((t) => t.id);
+    removeLocal("attempts", state.attempts.filter((a) => testIds.includes(a.testId)).map((a) => a.id));
+    removeLocal("tests", testIds);
+    removeLocal("plans", [id]);
   },
 
   clearAll() {

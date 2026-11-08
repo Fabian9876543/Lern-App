@@ -37,3 +37,21 @@ export const GradingSchema = z.object({
 });
 
 export type GradingResult = z.infer<typeof GradingSchema>;
+
+export const GeneratedTopicSchema = z.object({
+  name: z.string().describe("Kurzer, eindeutiger Themenname"),
+  description: z.string().describe("Was man zu diesem Thema können muss, 1–2 Sätze"),
+  estimated_minutes: z.number().int().describe("Lernzeit in Minuten ohne Übungstests, 20 bis 300"),
+  importance: z.enum(["high", "medium", "low"]),
+  prerequisites: z.array(z.string()).describe("Namen anderer Themen aus der Liste, die vorher sitzen sollten"),
+  sources: z.string().describe("Fundstelle im Material, z. B. 'Skript S. 12–18'"),
+});
+
+export const TopicAnalysisSchema = z.object({
+  title: z.string().describe("Kurzer Name für den Lernplan"),
+  notes: z.string().describe("Hinweise an den Lernenden oder leerer String"),
+  topics: z.array(GeneratedTopicSchema),
+});
+
+export type GeneratedTopic = z.infer<typeof GeneratedTopicSchema>;
+export type TopicAnalysis = z.infer<typeof TopicAnalysisSchema>;

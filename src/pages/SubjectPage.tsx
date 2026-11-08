@@ -4,6 +4,7 @@ import FileDrop from "../components/FileDrop";
 import MaterialPreview from "../components/MaterialPreview";
 import Modal from "../components/Modal";
 import { formatDate, summarize } from "../lib/attempts";
+import { daysBetween, formatDay, todayISO } from "../lib/planner";
 import { ACCEPTED_FILE_TYPES, ROLE_LABELS, formatBytes, guessRole, prepareFile } from "../lib/files";
 import { newId } from "../lib/ids";
 import { navigate } from "../router";
@@ -29,7 +30,10 @@ export default function SubjectPage({ subjectId }: { subjectId: string }) {
     );
   }
   const materials = store.materials.filter((m) => m.subjectId === subjectId);
-  const tests = store.tests.filter((t) => t.subjectId === subjectId).sort((a, b) => b.createdAt - a.createdAt);
+  const allTests = store.tests.filter((t) => t.subjectId === subjectId).sort((a, b) => b.createdAt - a.createdAt);
+  const tests = allTests.filter((t) => !t.planId);
+  const planTestCount = allTests.length - tests.length;
+  const plans = store.plans.filter((p) => p.subjectId === subjectId).sort((a, b) => a.examDate.localeCompare(b.examDate));
   const attempts = store.attempts.filter((a) => a.subjectId === subjectId);
 
   async function addFiles(files: File[]) {
@@ -154,6 +158,45 @@ export default function SubjectPage({ subjectId }: { subjectId: string }) {
 
       <section className="card stack-sm">
         <div className="row-between">
+          <h2>Lernpläne</h2>
+          <button className="btn btn-ghost" onClick={() => navigate(`/subject/${subjectId}/new-plan`)}>
+            + Lernplan
+          </button>
+        </div>
+        {plans.length === 0 && (
+          <p className="muted">
+            Ein Lernplan verteilt die Themen bis zur Prüfung auf deine Lerntage – mit Übungstests, Wiederholungen und
+            Probeklausur.
+          </p>
+        )}
+        <div className="stack-sm">
+          {plans.map((p) => {
+            const done = p.tasks.filter((t) => t.status === "done").length;
+            const days = daysBetween(todayISO(), p.examDate);
+            return (
+              <a key={p.id} className="card card-link card-inner row-between" href={`#/plan/${p.id}`}>
+                <div>
+                  <strong>{p.title}</strong>
+                  <div className="muted small">
+                    Prüfung {formatDay(p.examDate)}
+                    {days >= 0 ? ` · noch ${days} Tage` : " · vorbei"}
+                  </div>
+                </div>
+                {p.status === "draft" ? (
+                  <span className="chip chip-soft">Entwurf</span>
+                ) : (
+                  <span className="score-pill">
+                    {done}/{p.tasks.length} <span className="muted small">erledigt</span>
+                  </span>
+                )}
+              </a>
+            );
+          })}
+        </div>
+      </section>
+
+      <section className="card stack-sm">
+        <div className="row-between">
           <h2>Tests</h2>
           <button
             className="btn btn-primary"
@@ -165,6 +208,11 @@ export default function SubjectPage({ subjectId }: { subjectId: string }) {
         </div>
         {materials.length === 0 && <p className="muted">Lade zuerst Material hoch, um einen Test zu erstellen.</p>}
         {tests.length === 0 && materials.length > 0 && <p className="muted">Noch keine Tests erstellt.</p>}
+        {planTestCount > 0 && (
+          <p className="muted small">
+            Dazu {planTestCount} {planTestCount === 1 ? "Test" : "Tests"} aus Lernplänen – zu finden im jeweiligen Plan.
+          </p>
+        )}
         <div className="stack-sm">
           {tests.map((t) => {
             const finished = attempts

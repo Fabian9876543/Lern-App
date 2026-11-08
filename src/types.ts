@@ -73,6 +73,8 @@ export interface GenerationSettings {
   allowedTypes: QuestionType[];
   focus: string;
   exactFormat: "original" | "auto_checkable";
+  /** Lernplan: Fragen genau diesen Themen zuordnen (Feld topic). */
+  topicNames?: string[];
 }
 
 export interface Test {
@@ -86,6 +88,8 @@ export interface Test {
   notes: string;
   createdAt: number;
   model: string;
+  /** Gehört zu diesem Lernplan (Übung, Wiederholung, Probeklausur, Einstufung). */
+  planId?: string;
 }
 
 export type Verdict = "correct" | "partial" | "wrong";
@@ -123,4 +127,63 @@ export interface Attempt {
   startedAt: number;
   finishedAt: number | null;
   label: string;
+}
+
+// ---------- Lernplan ----------
+
+export type Importance = "high" | "medium" | "low";
+
+export interface PlanTopic {
+  id: string;
+  name: string;
+  description: string;
+  /** Geschätzte Lernzeit in Minuten (ohne Übungstests). */
+  estimatedMinutes: number;
+  importance: Importance;
+  /** IDs der Themen, die vorher verstanden sein sollten. */
+  prerequisites: string[];
+  /** Fundstelle im Material, z. B. „Skript S. 12–18“. */
+  sources: string;
+  /** Ergebnis im Einstufungstest in Prozent; null = nicht geprüft. */
+  placementPercent: number | null;
+}
+
+export type PlanTaskType = "learn" | "practice" | "review" | "mock_exam" | "buffer";
+
+export interface PlanTask {
+  id: string;
+  /** Datum im Format JJJJ-MM-TT. */
+  date: string;
+  type: PlanTaskType;
+  topicIds: string[];
+  title: string;
+  minutes: number;
+  status: "open" | "done" | "skipped";
+  /** Zur Aufgabe gehörender Test (Übung, Wiederholung, Probeklausur). */
+  testId?: string;
+  /** Abgeschlossener Durchlauf, der die Aufgabe erledigt hat. */
+  attemptId?: string;
+  /** Automatisch ergänzt, weil ein Thema noch nicht sitzt. */
+  extra?: boolean;
+}
+
+export interface StudyPlan {
+  id: string;
+  subjectId: string;
+  title: string;
+  examDate: string;
+  startDate: string;
+  /** Lernzeit in Minuten pro Wochentag, Index 0 = Sonntag … 6 = Samstag. */
+  minutesPerWeekday: number[];
+  materialIds: string[];
+  focus: string;
+  topics: PlanTopic[];
+  tasks: PlanTask[];
+  /** "draft": Themen prüfen / Einstufung; "active": Plan steht. */
+  status: "draft" | "active";
+  placementTestId?: string;
+  notes: string;
+  warnings: string[];
+  createdAt: number;
+  updatedAt: number;
 }

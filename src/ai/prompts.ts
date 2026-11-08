@@ -50,7 +50,7 @@ export function buildTaskInstruction(settings: GenerationSettings): string {
 Teilaufgaben (a, b, c …) werden einzelne Fragen; nimm den gemeinsamen Aufgabenkontext in jede Teilfrage auf. Trage in "source" ein, woher die Aufgabe stammt (z. B. „Blatt 2, Aufgabe 3b“).
 Übernimm die Lösungen aus den Lösungsmaterialien und setze dann "solution_from_material" auf true. Fehlt zu einer Aufgabe die Lösung, löse sie selbst sorgfältig, setze "solution_from_material" auf false und erwähne das in "notes".
 ${formatRule}
-Materialien mit der Rolle „Lernmaterial / Referenz“ dienen nur als Hintergrund für Erklärungen.${focus ? `\nBeschränke dich auf Aufgaben zu: ${focus}` : ""}`;
+Materialien mit der Rolle „Lernmaterial / Referenz“ dienen nur als Hintergrund für Erklärungen.${focus ? `\nBeschränke dich auf Aufgaben zu: ${focus}` : ""}${topicRule(settings)}`;
   }
 
   const count = settings.questionCount ?? 10;
@@ -64,7 +64,12 @@ Die Aufgaben dürfen nicht mit Aufgaben im Material übereinstimmen: verwende ne
 Decke die wichtigsten Themen des Materials ausgewogen ab, statt dich auf ein Detail zu konzentrieren.
 Schwierigkeit: ${difficulty}.
 Erlaubte Formate: ${typeList}. Nutze eine sinnvolle Mischung dieser Formate, passend zum Stoff.
-Trage in "source" ein, auf welchen Teil des Materials sich die Aufgabe bezieht. "solution_from_material" ist immer false.${focus ? `\nSchwerpunkt: ${focus}` : ""}`;
+Trage in "source" ein, auf welchen Teil des Materials sich die Aufgabe bezieht. "solution_from_material" ist immer false.${focus ? `\nSchwerpunkt: ${focus}` : ""}${topicRule(settings)}`;
+}
+
+function topicRule(settings: GenerationSettings): string {
+  if (!settings.topicNames?.length) return "";
+  return `\nOrdne jede Aufgabe genau einem dieser Themen zu und schreibe den Namen exakt so in "topic": ${settings.topicNames.map((t) => `„${t}“`).join(", ")}.`;
 }
 
 export const GRADING_SYSTEM_PROMPT = `Du bewertest die Antwort eines Lernenden auf eine Übungsaufgabe anhand der Musterlösung.
@@ -122,3 +127,62 @@ export const TEST_JSON_FORMAT = `Antworte ausschließlich mit einem JSON-Objekt 
 Die Kommentare oben dienen nur der Erklärung – schreibe gültiges JSON ohne Kommentare. Achtung: In JSON-Strings muss jeder Backslash verdoppelt werden, also z. B. "$\\\\frac{1}{2}$" für $\\frac{1}{2}$.`;
 
 export const GRADING_JSON_FORMAT = `Antworte ausschließlich mit einem JSON-Objekt: {"verdict": "correct" | "partial" | "wrong", "score": Zahl zwischen 0 und der Maximalpunktzahl, "feedback": "1–4 Sätze"}`;
+
+// ---------- Lernplan ----------
+
+export const TOPIC_SYSTEM_PROMPT = `Du bist ein erfahrener Tutor und hilfst einem Lernenden bei der Vorbereitung auf eine Prüfung. Du erstellst die Liste der prüfungsrelevanten Themen; eine Lern-App verteilt sie anschließend auf die Tage bis zur Prüfung.
+
+Jedes Material ist mit einer Rolle beschriftet: „Aufgaben“, „Lösungen“, „Aufgaben + Lösungen“ oder „Lernmaterial / Referenz“. Altklausuren und Übungsblätter zeigen, was in der Prüfung drankommt.
+
+Für jedes Thema:
+- name: kurz und eindeutig (2–6 Wörter), wie in einem Inhaltsverzeichnis.
+- description: 1–2 Sätze, was man zu diesem Thema können muss.
+- estimated_minutes: realistische Zeit, um das Thema zu verstehen und typische Aufgaben selbst zu lösen – inklusive Durcharbeiten der Beispiele, ohne Übungstests. Zwischen 20 und 300.
+- importance: "high", wenn das Thema in Klausuren oder Übungen häufig vorkommt oder Grundlage für vieles andere ist; "low" für Randthemen; sonst "medium".
+- prerequisites: Namen anderer Themen aus deiner Liste, die man vorher verstanden haben sollte – genau so geschrieben wie dort.
+- sources: wo das Thema im Material steht (Dateiname und Seiten, Kapitel oder Aufgaben).
+
+Ordne die Themen in einer sinnvollen Lernreihenfolge. Fasse sehr kleine Punkte zusammen und teile sehr große Themen auf, sodass meist 6 bis 20 Themen entstehen.
+title: kurzer Name für den Lernplan, z. B. „Klausur Analysis 1“.
+notes: kurze Hinweise an den Lernenden, etwa wenn das Material Lücken hat oder die Zeit sehr knapp ist; sonst leer.
+Sprache: die Sprache des Materials.`;
+
+export function buildTopicInstruction(params: {
+  examDateLabel: string;
+  daysUntilExam: number;
+  availableMinutes: number;
+  focus: string;
+  givenTopics?: string[];
+  hasMaterials: boolean;
+}): string {
+  const hours = Math.round(params.availableMinutes / 60);
+  const lines = [
+    `Die Prüfung ist am ${params.examDateLabel}, also in ${params.daysUntilExam} Tagen. Bis dahin sind ca. ${hours} Stunden Lernzeit eingeplant.`,
+  ];
+  if (!params.hasMaterials) lines.push("Es wurde kein Material ausgewählt – stütze dich auf dein Fachwissen und schreibe in sources „kein Material“.");
+  if (params.focus.trim()) lines.push(`Hinweise des Lernenden: ${params.focus.trim()}`);
+  if (params.givenTopics?.length) {
+    lines.push(
+      `Die Themen der Prüfung stehen bereits fest. Verwende genau diese Themen in dieser Reihenfolge und mit genau diesen Namen – füge keine hinzu und lass keine weg. Ergänze die übrigen Felder; findet sich ein Thema nicht im Material, schätze anhand deines Fachwissens und schreibe in sources „nicht im Material“.\n${params.givenTopics.map((t, i) => `${i + 1}. ${t}`).join("\n")}`,
+    );
+  } else {
+    lines.push("Erstelle die Themenliste aus dem Material.");
+  }
+  return lines.join("\n\n");
+}
+
+export const TOPIC_JSON_FORMAT = `Antworte ausschließlich mit einem JSON-Objekt in genau dieser Form (keine weiteren Texte, keine Kommentare):
+{
+  "title": "Kurzer Name für den Lernplan",
+  "notes": "Hinweise oder leerer String",
+  "topics": [
+    {
+      "name": "Themenname",
+      "description": "Was man können muss",
+      "estimated_minutes": 90,
+      "importance": "high" | "medium" | "low",
+      "prerequisites": ["Name eines anderen Themas"],
+      "sources": "Fundstelle im Material"
+    }
+  ]
+}`;

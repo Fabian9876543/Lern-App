@@ -133,6 +133,14 @@ export default function TestPage({ testId }: { testId: string }) {
         </p>
       </div>
 
+      {test.planId && store.plans.some((p) => p.id === test.planId) && (
+        <div className="callout row-between">
+          <span>Dieser Test gehört zu einem Lernplan.</span>
+          <a className="btn btn-ghost btn-sm" href={`#/plan/${test.planId}`}>
+            Zum Lernplan
+          </a>
+        </div>
+      )}
       {test.notes && (
         <div className="callout">
           <strong>Hinweis von Claude:</strong> {test.notes}

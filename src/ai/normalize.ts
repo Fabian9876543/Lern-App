@@ -102,3 +102,8 @@ export function formatNumber(n: number): string {
 export function countQuestions(partialJson: string): number {
   return partialJson.split('"prompt"').length - 1;
 }
+
+/** Zählt die Einträge einer noch unvollständigen JSON-Antwort anhand eines Feldnamens. */
+export function countJsonKey(partialJson: string, key: string): number {
+  return partialJson.split(`"${key}"`).length - 1;
+}

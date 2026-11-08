@@ -1,4 +1,4 @@
-import type { GeneratedQuestion, GeneratedTest, GradingResult } from "./schemas";
+import type { GeneratedQuestion, GeneratedTest, GeneratedTopic, GradingResult, TopicAnalysis } from "./schemas";
 
 /**
  * Liest KI-Antworten tolerant ein, wenn kein JSON-Schema erzwungen werden kann
@@ -89,3 +89,35 @@ export function coerceGrading(raw: unknown): GradingResult | null {
     feedback: str(g.feedback).trim(),
   };
 }
+
+export function coerceTopicAnalysis(raw: unknown): TopicAnalysis {
+  const obj = (Array.isArray(raw) ? { topics: raw } : raw ?? {}) as Record<string, unknown>;
+  const topics = Array.isArray(obj.topics) ? obj.topics : [];
+  return {
+    title: str(obj.title).trim(),
+    notes: str(obj.notes).trim(),
+    topics: topics
+      .map((t): GeneratedTopic | null => {
+        if (!t || typeof t !== "object") {
+          const name = str(t).trim();
+          return name
+            ? { name, description: "", estimated_minutes: 60, importance: "medium", prerequisites: [], sources: "" }
+            : null;
+        }
+        const r = t as Record<string, unknown>;
+        const name = str(r.name ?? r.topic).trim();
+        if (!name) return null;
+        return {
+          name,
+          description: str(r.description).trim(),
+          estimated_minutes: num(r.estimated_minutes) ?? 60,
+          importance: oneOf(r.importance, DIFFICULTY_TO_IMPORTANCE, "medium"),
+          prerequisites: strList(r.prerequisites),
+          sources: str(r.sources).trim(),
+        };
+      })
+      .filter((t): t is GeneratedTopic => t !== null),
+  };
+}
+
+const DIFFICULTY_TO_IMPORTANCE = ["high", "medium", "low"] as const;

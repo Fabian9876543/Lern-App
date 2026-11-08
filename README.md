@@ -35,6 +35,11 @@ Beide Varianten entstehen aus demselben Code (`src/targets/artifact` bzw. `src/t
 - Ergebnisse mit Auswertung nach Thema, Verlauf pro Test und **„Fehler wiederholen“**
 - „Neue Variante“: zum selben Material einen neuen Test mit anderen Aufgaben erzeugen
 - Fragen nachträglich bearbeiten, löschen oder eigene hinzufügen
+- **Lernplan pro Fach:** Prüfungsdatum und Lernzeit pro Wochentag angeben, Themen von Claude aus dem Material
+  ermitteln lassen oder selbst eingeben (optional von Claude um Zeitbedarf, Wichtigkeit und Fundstellen ergänzt),
+  optionaler Einstufungstest. Die App verteilt Lernen, Übungstests, Wiederholungen (nach ca. 2, 6 und 13 Tagen) und
+  eine Probeklausur auf die Tage bis zur Prüfung, zeigt den Themenstand, plant bei schwachen Themen Zusatz-
+  wiederholungen ein und verteilt Verpasstes neu. Die Aufgaben des Tages stehen auf der Startseite.
 - Backup als JSON-Datei exportieren/importieren
 - Funktioniert auf Handy und Desktop; kann auf dem Handy zum Startbildschirm hinzugefügt werden
 
@@ -111,6 +116,6 @@ Aufbau:
 | `src/targets/web/` | Web-Version: Claude-API, IndexedDB |
 | `src/targets/artifact/` | claude.ai-Version: Claude über das Abo, Artifact-Speicher, PDF-Auslesen |
 | `src/store/` | Datenhaltung (gemeinsam für beide Varianten) |
-| `src/lib/` | Auswertung, Dateiverarbeitung, PDF, Durchläufe, Backup |
+| `src/lib/` | Auswertung, Dateiverarbeitung, PDF, Durchläufe, Backup, Lernplan (`planner.ts`: Kalender ohne KI, `plans.ts`: Aktionen) |
 | `src/pages/` | Seiten (Übersicht, Fach, Test erstellen, Test, Durchlauf, Ergebnis, Einstellungen) |
 | `src/components/` | Wiederverwendbare Bausteine (Antwortfelder, Feedback, Markdown/LaTeX, Editor) |

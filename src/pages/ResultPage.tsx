@@ -56,9 +56,15 @@ export default function ResultPage({ attemptId }: { attemptId: string }) {
   return (
     <div className="stack">
       <div className="page-header">
-        <a href={`#/test/${test.id}`} className="back-link">
-          ← {test.title}
-        </a>
+        {test.planId && store.plans.some((p) => p.id === test.planId) ? (
+          <a href={`#/plan/${test.planId}`} className="back-link">
+            ← Zurück zum Lernplan
+          </a>
+        ) : (
+          <a href={`#/test/${test.id}`} className="back-link">
+            ← {test.title}
+          </a>
+        )}
         <h1>Ergebnis</h1>
       </div>
 
@@ -101,9 +107,15 @@ export default function ResultPage({ attemptId }: { attemptId: string }) {
         <button className="btn btn-ghost" onClick={() => repeat()}>
           Ganzen Test wiederholen
         </button>
-        <a className="btn btn-ghost" href={`#/test/${test.id}`}>
-          Zur Testübersicht
-        </a>
+        {test.planId && store.plans.some((p) => p.id === test.planId) ? (
+          <a className="btn btn-ghost" href={`#/plan/${test.planId}`}>
+            Zum Lernplan
+          </a>
+        ) : (
+          <a className="btn btn-ghost" href={`#/test/${test.id}`}>
+            Zur Testübersicht
+          </a>
+        )}
       </div>
 
       {summary.byTopic.length > 1 && (

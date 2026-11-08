@@ -3,6 +3,7 @@ import { MODELS, getSettings, useSettings } from "../../settings";
 import { dexieBackend } from "../../store/dexieBackend";
 import type { AiStatus, PlatformImpl } from "../types";
 import AiSettings from "./AiSettings";
+import { analyzeTopics } from "./analyzeTopics";
 import { describeError } from "./client";
 import { generateTest } from "./generateTest";
 import { gradeWithAi } from "./gradeAnswer";
@@ -17,6 +18,7 @@ const impl: PlatformImpl = {
   backend: dexieBackend,
   generateTest,
   gradeWithAi,
+  analyzeTopics,
   describeError,
   aiStatus: () => statusFor(getSettings().apiKey),
   useAiStatus: () => statusFor(useSettings().apiKey),
