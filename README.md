@@ -83,7 +83,13 @@ ablegen kannst.
 ### Online über GitHub Pages
 
 Der Workflow `.github/workflows/deploy.yml` baut die App bei jedem Push auf `main` und veröffentlicht sie über
-GitHub Pages. Einmalig nötig: im Repository unter **Settings → Pages → Source** „GitHub Actions“ auswählen.
+GitHub Pages unter **https://fabian9876543.github.io/Lern-App/**.
+
+Einmalig nötig (in den Repository-Einstellungen auf GitHub):
+1. **Settings → General → Default branch:** auf `main` umstellen.
+2. **Settings → Pages → Build and deployment → Source:** „GitHub Actions“ auswählen.
+3. Unter **Actions** den Workflow „Deploy to GitHub Pages“ erneut starten („Re-run all jobs“ oder „Run workflow“).
+
 (Bei privaten Repositories setzt GitHub Pages einen kostenpflichtigen GitHub-Plan voraus.)
 
 ## API-Schlüssel und Kosten (Web-Version)
