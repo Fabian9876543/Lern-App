@@ -2,6 +2,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
+import { normalizeMath } from "../lib/markdown";
 
 /** Zeigt Markdown mit Formeln (LaTeX via KaTeX) an. */
 export default function Markdown({ children, className }: { children: string; className?: string }) {
@@ -12,13 +13,4 @@ export default function Markdown({ children, className }: { children: string; cl
       </ReactMarkdown>
     </div>
   );
-}
-
-const DOLLAR = "$";
-
-/** Wandelt \( \) und \[ \] in die Dollar-Schreibweise um, die remark-math versteht. */
-export function normalizeMath(text: string): string {
-  return text
-    .replace(/\\\[([\s\S]+?)\\\]/g, (_, m: string) => DOLLAR + DOLLAR + m + DOLLAR + DOLLAR)
-    .replace(/\\\(([\s\S]+?)\\\)/g, (_, m: string) => DOLLAR + m + DOLLAR);
 }

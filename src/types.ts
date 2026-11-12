@@ -189,3 +189,19 @@ export interface StudyPlan {
   createdAt: number;
   updatedAt: number;
 }
+
+/** Lernzettel zu einem Thema eines Lernplans, von Claude geschrieben. */
+export interface StudyNote {
+  id: string;
+  subjectId: string;
+  planId: string;
+  topicId: string;
+  /** Themenname zum Zeitpunkt der Erstellung. */
+  topicName: string;
+  /** Markdown mit LaTeX. */
+  content: string;
+  /** true: aus dem Material des Plans; false: aus Claudes Fachwissen. */
+  fromMaterial: boolean;
+  model: string;
+  createdAt: number;
+}

@@ -16,6 +16,8 @@ import {
 import {
   availableMinutes,
   finalizePlan,
+  noteFor,
+  planHasMaterials,
   redistributePlan,
   reopenPlan,
   setTaskStatus,
@@ -93,7 +95,7 @@ export default function PlanPage({ planId }: { planId: string }) {
       <div className="card generating stack-sm" aria-live="polite">
         <div className="spinner" />
         <h2>
-          {p.phase === "preparing" && "Material wird vorbereitet …"}
+          {p.phase === "preparing" && (planHasMaterials(plan) ? "Material wird vorbereitet …" : `${generating.label} wird vorbereitet …`)}
           {p.phase === "analyzing" && `${generating.label} wird erstellt …`}
           {p.phase === "writing" && (p.questionsSoFar > 0 ? `${p.questionsSoFar} Fragen erstellt …` : "Fragen werden geschrieben …")}
         </h2>
@@ -131,6 +133,13 @@ export default function PlanPage({ planId }: { planId: string }) {
       {plan.notes && (
         <div className="callout">
           <strong>Hinweis von Claude:</strong> {plan.notes}
+        </div>
+      )}
+      {!planHasMaterials(plan) && (
+        <div className="callout">
+          <strong>Ohne Material:</strong> Übungstests, Wiederholungen, Probeklausur und Lernzettel erstellt Claude aus
+          seinem Fachwissen. Das kann vom Stoff deiner Veranstaltung abweichen – gleiche im Zweifel mit Vorlesung, Skript
+          oder Buch ab.
         </div>
       )}
       {error && <div className="callout callout-error">{error}</div>}
@@ -287,8 +296,16 @@ function ActiveView({
     const doneAttempt = t.attemptId ? attempts.find((a) => a.id === t.attemptId) : undefined;
     const resultPercent = doneAttempt && test ? summarize(doneAttempt, test).percent : null;
     const isTestTask = t.type === "practice" || t.type === "review" || t.type === "mock_exam";
+    const noteTopicId = t.type === "learn" ? t.topicIds[0] : undefined;
+    const hasNote = !!noteTopicId && !!noteFor(store.notes, plan.id, noteTopicId);
     let actionLabel: string | undefined;
+    let onAction: (() => void) | undefined;
+    if (noteTopicId) {
+      actionLabel = hasNote ? "Lernzettel" : "Lernzettel erstellen";
+      onAction = () => navigate(`/plan/${plan.id}/note/${noteTopicId}?task=${t.id}${hasNote ? "" : "&create=1"}`);
+    }
     if (isTestTask) {
+      onAction = () => runWithTest(t.type === "mock_exam" ? "Probeklausur" : "Test", (opts) => startTaskTest(plan.id, t.id, opts));
       if (open) actionLabel = "Fortsetzen";
       else if (t.status === "done") actionLabel = "Nochmal";
       else if (t.type === "mock_exam") actionLabel = "Probeklausur starten";
@@ -305,7 +322,7 @@ function ActiveView({
         resultPercent={resultPercent}
         busy={false}
         onToggle={() => setTaskStatus(plan.id, t.id, t.status === "done" ? "open" : "done")}
-        onAction={isTestTask ? () => runWithTest(t.type === "mock_exam" ? "Probeklausur" : "Test", (opts) => startTaskTest(plan.id, t.id, opts)) : undefined}
+        onAction={onAction}
         onResult={doneAttempt ? () => navigate(`/result/${doneAttempt.id}`) : undefined}
       />
     );
@@ -367,7 +384,11 @@ function ActiveView({
 
       <section className="card stack-sm">
         <h2>Themenstand</h2>
-        <TopicStatusList topics={plan.topics} status={status} />
+        <TopicStatusList
+          topics={plan.topics}
+          status={status}
+          noteHref={(id) => (noteFor(store.notes, plan.id, id) ? `#/plan/${plan.id}/note/${id}` : null)}
+        />
         <p className="muted small">
           Aus deinen Tests im Plan (bzw. dem Einstufungstest). Themen unter 60 % bekommen automatisch eine Zusatzwiederholung.
         </p>

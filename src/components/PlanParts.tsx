@@ -204,7 +204,16 @@ export function TopicEditor({ topics, onChange }: { topics: PlanTopic[]; onChang
   );
 }
 
-export function TopicStatusList({ topics, status }: { topics: PlanTopic[]; status: Map<string, TopicStatus> }) {
+export function TopicStatusList({
+  topics,
+  status,
+  noteHref,
+}: {
+  topics: PlanTopic[];
+  status: Map<string, TopicStatus>;
+  /** Link zum Lernzettel eines Themas, falls es einen gibt. */
+  noteHref?: (topicId: string) => string | null;
+}) {
   return (
     <ul className="topic-list">
       {topics.map((t) => {
@@ -216,6 +225,11 @@ export function TopicStatusList({ topics, status }: { topics: PlanTopic[]; statu
               {s?.learned && <span title="Gelernt">✓ </span>}
               {t.name}
               {t.importance === "high" && <span className="chip chip-soft">wichtig</span>}
+              {noteHref?.(t.id) && (
+                <a className="small note-link" href={noteHref(t.id)!} aria-label={`Lernzettel zu ${t.name}`}>
+                  Lernzettel
+                </a>
+              )}
             </span>
             <span className="score-bar-wrap" title={s?.source === "placement" ? "aus dem Einstufungstest" : "aus deinen Übungen"}>
               {pct === null ? (

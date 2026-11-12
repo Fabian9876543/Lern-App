@@ -3,7 +3,7 @@ import { manualTopics, parseTopicLines, toPlanTopics } from "../ai/topics";
 import { TYPE_LABELS } from "../ai/prompts";
 import { getState, repo } from "../store/store";
 import type { GenerationProgress } from "../targets/types";
-import type { GenerationSettings, PlanTask, PlanTopic, Question, QuestionType, StudyPlan, Test } from "../types";
+import type { GenerationSettings, PlanTask, PlanTopic, Question, QuestionType, StudyNote, StudyPlan, Test } from "../types";
 import { startAttempt } from "./attempts";
 import { newId } from "./ids";
 import {
@@ -69,6 +69,7 @@ export async function createDraftPlan(
     topics = manualTopics(lines, newId);
   } else {
     const analysis = await platform.analyzeTopics({
+      subjectName: input.subjectName,
       materials,
       examDate: input.examDate,
       daysUntilExam: daysBetween(todayISO(), input.examDate),
@@ -158,6 +159,15 @@ function planMaterials(plan: StudyPlan) {
   return getState().materials.filter((m) => plan.materialIds.includes(m.id));
 }
 
+/** true, wenn der Plan (noch vorhandenes) Material hat; sonst arbeitet Claude aus seinem Fachwissen. */
+export function planHasMaterials(plan: StudyPlan): boolean {
+  return planMaterials(plan).length > 0;
+}
+
+function subjectNameOf(plan: StudyPlan): string {
+  return getState().subjects.find((s) => s.id === plan.subjectId)?.name ?? "";
+}
+
 /** Setzt das Thema jeder Frage auf den exakten Namen eines Plan-Themas. */
 function alignTopics(test: Test, topics: PlanTopic[], fallback?: PlanTopic): Test {
   return {
@@ -175,10 +185,12 @@ async function generatePlanTest(
   title: string,
   opts: { signal?: AbortSignal; onProgress?: (p: GenerationProgress) => void; fallbackTopic?: PlanTopic },
 ): Promise<Test> {
+  const hint = plan.focus.trim();
   const test = await platform.generateTest({
     subjectId: plan.subjectId,
+    subjectName: subjectNameOf(plan),
     materials: planMaterials(plan),
-    settings,
+    settings: hint ? { ...settings, focus: `${settings.focus}\nHinweise des Lernenden zur Prüfung: ${hint}` } : settings,
     signal: opts.signal,
     onProgress: opts.onProgress,
   });
@@ -187,9 +199,15 @@ async function generatePlanTest(
   return aligned;
 }
 
+/** Fundstellen, die nichts über das Material sagen (z. B. bei Plänen ohne Material). */
+const NO_SOURCE = /^(kein|nicht im) material$/i;
+
 function topicFocus(topics: PlanTopic[]): string {
   return topics
-    .map((t) => `„${t.name}“${t.description ? ` (${t.description})` : ""}${t.sources ? ` – Fundstelle: ${t.sources}` : ""}`)
+    .map((t) => {
+      const source = t.sources.trim() && !NO_SOURCE.test(t.sources.trim()) ? ` – Fundstelle: ${t.sources.trim()}` : "";
+      return `„${t.name}“${t.description ? ` (${t.description})` : ""}${source}`;
+    })
     .join("; ");
 }
 
@@ -342,6 +360,57 @@ function collectMistakes(plan: StudyPlan, topics: PlanTopic[]): Question[] {
     }
   }
   return [...latest.values()].filter((v) => !v.correct).map((v) => v.q);
+}
+
+// ---------- Lernzettel ----------
+
+export function noteFor(notes: StudyNote[], planId: string, topicId: string): StudyNote | undefined {
+  return notes.find((n) => n.planId === planId && n.topicId === topicId);
+}
+
+/** Geplante Lernzeit für ein Thema: Summe seiner Lern-Aufgaben, sonst die Schätzung. */
+function learnMinutes(plan: StudyPlan, topic: PlanTopic): number {
+  const sum = plan.tasks.filter((t) => t.type === "learn" && t.topicIds.includes(topic.id)).reduce((s, t) => s + t.minutes, 0);
+  return sum || topic.estimatedMinutes;
+}
+
+/** Lässt Claude einen Lernzettel zum Thema schreiben (ersetzt einen vorhandenen) und speichert ihn. */
+export async function createStudyNote(
+  planId: string,
+  topicId: string,
+  opts: { signal?: AbortSignal; onText?: (text: string) => void } = {},
+): Promise<StudyNote> {
+  const plan = repo.getPlan(planId);
+  const topic = plan?.topics.find((t) => t.id === topicId);
+  if (!plan || !topic) throw new Error("Dieses Thema gibt es im Lernplan nicht mehr.");
+  const materials = planMaterials(plan);
+  const result = await platform.createStudyNote({
+    subjectName: subjectNameOf(plan),
+    topic: {
+      name: topic.name,
+      description: topic.description,
+      sources: NO_SOURCE.test(topic.sources.trim()) ? "" : topic.sources.trim(),
+    },
+    planTopics: plan.topics.map((t) => t.name),
+    minutes: learnMinutes(plan, topic),
+    focus: plan.focus,
+    materials,
+    signal: opts.signal,
+    onText: opts.onText,
+  });
+  const note: StudyNote = {
+    id: newId(),
+    subjectId: plan.subjectId,
+    planId,
+    topicId,
+    topicName: topic.name,
+    content: result.content,
+    fromMaterial: materials.length > 0,
+    model: result.model,
+    createdAt: Date.now(),
+  };
+  repo.saveNote(note);
+  return note;
 }
 
 // ---------- Nach einem Durchlauf ----------

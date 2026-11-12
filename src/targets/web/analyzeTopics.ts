@@ -19,6 +19,7 @@ export async function analyzeTopics(params: TopicAnalysisParams): Promise<TopicA
   onProgress?.({ phase: "analyzing", questionsSoFar: 0 });
 
   const instruction = buildTopicInstruction({
+    subjectName: params.subjectName,
     examDateLabel: formatLongDate(params.examDate),
     daysUntilExam: params.daysUntilExam,
     availableMinutes: params.availableMinutes,

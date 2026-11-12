@@ -2,7 +2,6 @@ import { useSyncExternalStore } from "react";
 import { coerceGeneratedTest, coerceGrading, coerceMaterialName, coerceTopicAnalysis } from "../../ai/coerce";
 import { countJsonKey, countQuestions, describeCorrectAnswer, normalizeQuestions } from "../../ai/normalize";
 import {
-  GENERATION_SYSTEM_PROMPT,
   GRADING_JSON_FORMAT,
   GRADING_SYSTEM_PROMPT,
   MATERIAL_NAME_JSON_FORMAT,
@@ -10,9 +9,13 @@ import {
   materialNameUserText,
   TEST_JSON_FORMAT,
   TOPIC_JSON_FORMAT,
+  STUDY_NOTE_SYSTEM_PROMPT,
   TOPIC_SYSTEM_PROMPT,
+  buildStudyNoteInstruction,
   buildTaskInstruction,
   buildTopicInstruction,
+  cleanStudyNote,
+  generationSystemPrompt,
   gradingUserText,
 } from "../../ai/prompts";
 import type { TopicAnalysis } from "../../ai/schemas";
@@ -24,7 +27,7 @@ import { TIERS, getSettings } from "../../settings";
 import type { AnswerResponse, Material, Question, Test } from "../../types";
 import { formatLongDate } from "../../lib/planner";
 import type { MaterialRole } from "../../types";
-import type { AiGrade, AiStatus, GenerateParams, MaterialNameParams, TopicAnalysisParams } from "../types";
+import type { AiGrade, AiStatus, GenerateParams, MaterialNameParams, StudyNoteParams, TopicAnalysisParams } from "../types";
 import { artifactBackend } from "./storage";
 import { isSampleError, useCapability, type SampleFn } from "./claude";
 
@@ -127,22 +130,28 @@ async function prepareMaterials(materials: Material[]): Promise<PreparedMaterial
 
 export async function generateTest(params: GenerateParams): Promise<Test> {
   const { materials, settings, signal, onProgress } = params;
-  if (materials.length === 0) throw new AiResponseError("Bitte mindestens ein Material auswählen.");
+  const hasMaterials = materials.length > 0;
+  if (!hasMaterials && settings.mode === "exact") {
+    throw new AiResponseError("Für „Meine Aufgaben abfragen“ bitte Material mit Aufgaben auswählen.");
+  }
   const sample = await requireSample();
   const tier = getSettings().generationTier;
 
   onProgress?.({ phase: "preparing", questionsSoFar: 0 });
   const prepared = await prepareMaterials(materials);
-
-  const prompt = `${GENERATION_SYSTEM_PROMPT}
-
-${TEST_JSON_FORMAT}
-
-<materialien>
+  const materialPart = hasMaterials
+    ? `<materialien>
 ${prepared.text}
 </materialien>
 ${prepared.images.length ? `\nDazu sind ${prepared.images.length} Bilder beigefügt, nummeriert in der Reihenfolge, in der sie oben erwähnt werden.\n` : ""}
-${buildTaskInstruction(settings)}`;
+`
+    : "";
+
+  const prompt = `${generationSystemPrompt(hasMaterials)}
+
+${TEST_JSON_FORMAT}
+
+${materialPart}${buildTaskInstruction(settings, { hasMaterials, subjectName: params.subjectName })}`;
   await checkLimits(sample, prompt, prepared.images.length);
 
   onProgress?.({ phase: "analyzing", questionsSoFar: 0 });
@@ -213,6 +222,7 @@ export async function analyzeTopics(params: TopicAnalysisParams): Promise<TopicA
   onProgress?.({ phase: "preparing", questionsSoFar: 0 });
   const prepared = await prepareMaterials(materials);
   const instruction = buildTopicInstruction({
+    subjectName: params.subjectName,
     examDateLabel: formatLongDate(params.examDate),
     daysUntilExam: params.daysUntilExam,
     availableMinutes: params.availableMinutes,
@@ -237,6 +247,34 @@ export async function analyzeTopics(params: TopicAnalysisParams): Promise<TopicA
   const parsed = coerceTopicAnalysis(raw);
   if (parsed.topics.length === 0) throw new AiResponseError("Claude hat keine Themen gefunden. Bitte erneut versuchen.");
   return parsed;
+}
+
+// ---------- Lernplan: Lernzettel ----------
+
+export async function createStudyNote(params: StudyNoteParams): Promise<{ content: string; model: string }> {
+  const { materials, signal, onText } = params;
+  const sample = await requireSample();
+  const tier = getSettings().generationTier;
+  const prepared = await prepareMaterials(materials);
+  const materialPart = materials.length
+    ? `<materialien>\n${prepared.text}\n</materialien>\n${
+        prepared.images.length
+          ? `\nDazu sind ${prepared.images.length} Bilder beigefügt, nummeriert in der Reihenfolge, in der sie oben erwähnt werden.\n`
+          : ""
+      }\n`
+    : "";
+  const prompt = `${STUDY_NOTE_SYSTEM_PROMPT}\n\n${materialPart}${buildStudyNoteInstruction({ ...params, hasMaterials: materials.length > 0 })}`;
+  await checkLimits(sample, prompt, prepared.images.length);
+  const result = await sample(prompt, {
+    modelTier: tier,
+    images: prepared.images.length ? prepared.images : undefined,
+    cache: false,
+    signal,
+    onText: ({ text }) => onText?.(text),
+  });
+  const content = cleanStudyNote(result.text);
+  if (!content) throw new AiResponseError("Claude hat keinen Lernzettel geliefert. Bitte erneut versuchen.");
+  return { content, model: `claude.ai – ${TIERS.find((t) => t.id === tier)?.label ?? tier}` };
 }
 
 // ---------- Material benennen ----------

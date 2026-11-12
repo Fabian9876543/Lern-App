@@ -12,6 +12,9 @@ export interface GenerationProgress {
 
 export interface GenerateParams {
   subjectId: string;
+  /** Name des Fachs – wichtig, wenn ohne Material erzeugt wird. */
+  subjectName?: string;
+  /** Ohne Material (nur Modus „generated“) entstehen die Aufgaben aus Claudes Fachwissen. */
   materials: Material[];
   settings: GenerationSettings;
   signal?: AbortSignal;
@@ -19,6 +22,7 @@ export interface GenerateParams {
 }
 
 export interface TopicAnalysisParams {
+  subjectName: string;
   materials: Material[];
   examDate: string;
   daysUntilExam: number;
@@ -37,6 +41,21 @@ export interface MaterialNameParams {
   /** Bild des Materials bzw. der ersten Seite, wenn es keinen Text gibt. */
   image?: Blob;
   signal?: AbortSignal;
+}
+
+export interface StudyNoteParams {
+  subjectName: string;
+  topic: { name: string; description: string; sources: string };
+  /** Namen aller Themen des Plans in Lernreihenfolge. */
+  planTopics: string[];
+  /** Geplante Lernzeit für das Thema in Minuten. */
+  minutes: number;
+  focus: string;
+  /** Material des Plans; leer = aus Claudes Fachwissen. */
+  materials: Material[];
+  signal?: AbortSignal;
+  /** Bisher geschriebener Text (für die Live-Anzeige). */
+  onText?: (text: string) => void;
 }
 
 export interface AiGrade {
@@ -59,6 +78,8 @@ export interface PlatformImpl {
   gradeWithAi(question: Question, response: AnswerResponse, signal?: AbortSignal): Promise<AiGrade>;
   /** Lernplan: Themen aus dem Material ermitteln oder vorgegebene Themen ergänzen. */
   analyzeTopics(params: TopicAnalysisParams): Promise<TopicAnalysis>;
+  /** Schreibt einen Lernzettel (Markdown) zu einem Thema des Lernplans. */
+  createStudyNote(params: StudyNoteParams): Promise<{ content: string; model: string }>;
   /** Schlägt für ein Material mit nichtssagendem Dateinamen Name und Rolle vor. */
   suggestMaterialName(params: MaterialNameParams): Promise<{ name: string; role: MaterialRole | null }>;
   describeError(error: unknown): string;

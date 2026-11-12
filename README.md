@@ -56,6 +56,13 @@ Beide Varianten entstehen aus demselben Code (`src/targets/artifact` bzw. `src/t
   optionaler Einstufungstest. Die App verteilt Lernen, Übungstests, Wiederholungen (nach ca. 2, 6 und 13 Tagen) und
   eine Probeklausur auf die Tage bis zur Prüfung, zeigt den Themenstand, plant bei schwachen Themen Zusatz-
   wiederholungen ein und verteilt Verpasstes neu. Die Aufgaben des Tages stehen auf der Startseite.
+- **Lernzettel:** Zu jeder Lern-Aufgabe im Plan schreibt Claude auf Knopfdruck einen Lernzettel – das Wichtigste,
+  ein Vorgehen für typische Aufgaben, vorgerechnete Beispiele, typische Fehler und ein kurzer Selbstcheck. Er wird
+  gespeichert und ist auch über den Themenstand erreichbar.
+- **Lernplan ohne Material:** Ohne hochgeladenes Material schlägt Claude die typischen Prüfungsthemen des Fachs vor
+  (am besten mit Hinweisen wie „Uni, 1. Semester, Klausur 90 Min.“) und erstellt Übungstests, Wiederholungen,
+  Probeklausur und Lernzettel aus seinem Fachwissen. Die App weist darauf hin, dass das vom Stoff der eigenen
+  Veranstaltung abweichen kann.
 - Backup als JSON-Datei exportieren/importieren
 - Funktioniert auf Handy und Desktop; kann auf dem Handy zum Startbildschirm hinzugefügt werden
 
@@ -114,7 +121,8 @@ wählen.
   (IndexedDB).
 - Web-Version: Der API-Schlüssel liegt nur im Browser (localStorage) und wird ausschließlich an `api.anthropic.com` gesendet.
   Nutze die App deshalb nur auf deinem eigenen Gerät.
-- Materialien werden nur dann an Claude geschickt, wenn du einen Test erstellst.
+- Materialien werden nur dann an Claude geschickt, wenn du einen Test, die Themen eines Lernplans oder einen Lernzettel
+  erstellen lässt – und beim automatischen Benennen ein Auszug der Datei.
 
 ## Entwicklung
 
@@ -134,5 +142,5 @@ Aufbau:
 | `src/targets/artifact/` | claude.ai-Version: Claude über das Abo, Artifact-Speicher, PDF-Auslesen |
 | `src/store/` | Datenhaltung (gemeinsam für beide Varianten) |
 | `src/lib/` | Auswertung, Dateiverarbeitung, PDF, Durchläufe, Backup, Lernplan (`planner.ts`: Kalender ohne KI, `plans.ts`: Aktionen) |
-| `src/pages/` | Seiten (Übersicht, Fach, Test erstellen, Test, Durchlauf, Ergebnis, Einstellungen) |
+| `src/pages/` | Seiten (Übersicht, Fach, Test erstellen, Test, Durchlauf, Ergebnis, Lernplan, Lernzettel, Einstellungen) |
 | `src/components/` | Wiederverwendbare Bausteine (Antwortfelder, Feedback, Markdown/LaTeX, Editor) |

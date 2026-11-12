@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from "react";
 import { backend } from "@platform-impl";
-import type { Attempt, Material, StudyPlan, Subject, Test } from "../types";
+import type { Attempt, Material, StudyNote, StudyPlan, Subject, Test } from "../types";
 import { TABLES, type StorageMode, type TableName, type Tables } from "./types";
 
 /**
@@ -18,6 +18,7 @@ export interface StoreState {
   tests: Test[];
   attempts: Attempt[];
   plans: StudyPlan[];
+  notes: StudyNote[];
 }
 
 let state: StoreState = {
@@ -29,6 +30,7 @@ let state: StoreState = {
   tests: [],
   attempts: [],
   plans: [],
+  notes: [],
 };
 const listeners = new Set<() => void>();
 const loaded = new Set<TableName>();
@@ -172,6 +174,7 @@ export const repo = {
     const materials = state.materials.filter((m) => m.subjectId === id);
     materials.forEach((m) => void backend.deleteMaterialContent(m).catch(() => {}));
     removeLocal("attempts", state.attempts.filter((a) => a.subjectId === id).map((a) => a.id));
+    removeLocal("notes", state.notes.filter((n) => n.subjectId === id).map((n) => n.id));
     removeLocal("plans", state.plans.filter((p) => p.subjectId === id).map((p) => p.id));
     removeLocal("tests", state.tests.filter((t) => t.subjectId === id).map((t) => t.id));
     removeLocal("materials", materials.map((m) => m.id));
@@ -231,7 +234,17 @@ export const repo = {
     const testIds = state.tests.filter((t) => t.planId === id).map((t) => t.id);
     removeLocal("attempts", state.attempts.filter((a) => testIds.includes(a.testId)).map((a) => a.id));
     removeLocal("tests", testIds);
+    removeLocal("notes", state.notes.filter((n) => n.planId === id).map((n) => n.id));
     removeLocal("plans", [id]);
+  },
+
+  /** Speichert einen Lernzettel; ein älterer Zettel zum selben Thema wird ersetzt. */
+  saveNote(n: StudyNote) {
+    removeLocal("notes", state.notes.filter((x) => x.planId === n.planId && x.topicId === n.topicId && x.id !== n.id).map((x) => x.id));
+    upsert("notes", n);
+  },
+  deleteNote(id: string) {
+    removeLocal("notes", [id]);
   },
 
   clearAll() {

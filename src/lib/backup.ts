@@ -1,5 +1,5 @@
 import { getState, repo } from "../store/store";
-import type { Attempt, Material, StudyPlan, Subject, Test } from "../types";
+import type { Attempt, Material, StudyNote, StudyPlan, Subject, Test } from "../types";
 import { blobToDataUrl } from "./files";
 
 /** Backup aller Daten als JSON – auch zum Umziehen zwischen Web- und claude.ai-Version. */
@@ -17,10 +17,11 @@ interface Backup {
   tests: Test[];
   attempts: Attempt[];
   plans?: StudyPlan[];
+  notes?: StudyNote[];
 }
 
 export async function exportBackup(): Promise<Blob> {
-  const { subjects, materials, tests, attempts, plans } = getState();
+  const { subjects, materials, tests, attempts, plans, notes } = getState();
   const backupMaterials: BackupMaterial[] = [];
   for (const m of materials) {
     const { blob: _blob, assetId: _assetId, ...rest } = m;
@@ -55,6 +56,7 @@ export async function exportBackup(): Promise<Blob> {
     tests,
     attempts: portableAttempts,
     plans,
+    notes,
   };
   return new Blob([JSON.stringify(backup)], { type: "application/json" });
 }
@@ -88,5 +90,6 @@ export async function importBackup(file: File): Promise<{ subjects: number; test
     repo.addAttempt({ ...a, answers });
   }
   (data.plans ?? []).forEach((p) => repo.addPlan(p));
+  (data.notes ?? []).forEach((n) => repo.saveNote(n));
   return { subjects: data.subjects.length, tests: data.tests?.length ?? 0 };
 }

@@ -73,6 +73,7 @@ export default function TestPage({ testId }: { testId: string }) {
     try {
       const fresh = await platform.generateTest({
         subjectId: test!.subjectId,
+        subjectName: store.subjects.find((s) => s.id === test!.subjectId)?.name,
         materials,
         settings: test!.settings,
       });
@@ -130,6 +131,7 @@ export default function TestPage({ testId }: { testId: string }) {
           {test.mode === "exact" ? "Originalaufgaben" : "Neue Aufgaben"} · {test.questions.length} Fragen ·{" "}
           {totalPoints} Punkte · erstellt {formatDate(test.createdAt)}
           {materials.length > 0 && <> · aus {materials.map((m) => m.name).join(", ")}</>}
+          {test.materialIds.length === 0 && test.mode === "generated" && <> · aus Claudes Fachwissen (ohne Material)</>}
         </p>
       </div>
 
@@ -221,7 +223,7 @@ export default function TestPage({ testId }: { testId: string }) {
         <h2>Mehr üben</h2>
         <div className="row-wrap">
           {test.mode === "generated" && (
-            <button className="btn btn-ghost" onClick={regenerate} disabled={regenerating || materials.length === 0}>
+            <button className="btn btn-ghost" onClick={regenerate} disabled={regenerating || (materials.length === 0 && test.materialIds.length > 0)}>
               {regenerating ? "Erstelle neue Variante …" : "🔄 Neue Variante mit anderen Aufgaben"}
             </button>
           )}

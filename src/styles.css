@@ -1516,3 +1516,50 @@ details.card[open] > summary {
     padding-left: 1.9rem;
   }
 }
+
+/* ---------- Lernzettel ---------- */
+
+.eyebrow {
+  margin: 0;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.study-note {
+  font-size: 1rem;
+  line-height: 1.65;
+  overflow-wrap: break-word;
+}
+.study-note h2 {
+  font-size: 1.12rem;
+  margin: 1.5em 0 0.45em;
+  padding-bottom: 0.3em;
+  border-bottom: 1px solid var(--border);
+}
+.study-note h3 {
+  font-size: 1rem;
+  margin: 1.1em 0 0.35em;
+}
+.study-note li + li {
+  margin-top: 0.25em;
+}
+.study-note blockquote {
+  margin: 0.7em 0;
+  padding: 0.45em 0.9em;
+  border-left: 3px solid var(--primary);
+  background: var(--surface-2);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+.note-writing {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+.spinner-sm {
+  width: 22px;
+  height: 22px;
+  border-width: 3px;
+}
+.note-link {
+  font-weight: 500;
+}

@@ -9,6 +9,7 @@ import SubjectPage from "./pages/SubjectPage";
 import NewTestPage from "./pages/NewTestPage";
 import NewPlanPage from "./pages/NewPlanPage";
 import PlanPage from "./pages/PlanPage";
+import NotePage from "./pages/NotePage";
 import TestPage from "./pages/TestPage";
 import RunPage from "./pages/RunPage";
 import ResultPage from "./pages/ResultPage";
@@ -20,9 +21,10 @@ export default function App() {
   const ai = platform.useAiStatus();
 
   let page: ReactNode;
-  const [section, id, sub] = route;
+  const [section, id, sub, subId] = route;
   if (section === "subject" && id && sub === "new-test") page = <NewTestPage subjectId={id} />;
   else if (section === "subject" && id && sub === "new-plan") page = <NewPlanPage subjectId={id} />;
+  else if (section === "plan" && id && sub === "note" && subId) page = <NotePage planId={id} topicId={subId} />;
   else if (section === "plan" && id) page = <PlanPage planId={id} />;
   else if (section === "subject" && id) page = <SubjectPage subjectId={id} />;
   else if (section === "test" && id) page = <TestPage testId={id} />;

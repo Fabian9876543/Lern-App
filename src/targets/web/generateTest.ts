@@ -1,6 +1,6 @@
 import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod";
 import { countQuestions, normalizeQuestions } from "../../ai/normalize";
-import { GENERATION_SYSTEM_PROMPT, buildTaskInstruction } from "../../ai/prompts";
+import { buildTaskInstruction, generationSystemPrompt } from "../../ai/prompts";
 import { GeneratedTestSchema } from "../../ai/schemas";
 import { newId } from "../../lib/ids";
 import { getSettings } from "../../settings";
@@ -11,7 +11,10 @@ import { MAX_REQUEST_BYTES, estimateRequestBytes, materialsToContent } from "./m
 
 export async function generateTest(params: GenerateParams): Promise<Test> {
   const { materials, settings, signal, onProgress } = params;
-  if (materials.length === 0) throw new AiResponseError("Bitte mindestens ein Material auswählen.");
+  const hasMaterials = materials.length > 0;
+  if (!hasMaterials && settings.mode === "exact") {
+    throw new AiResponseError("Für „Meine Aufgaben abfragen“ bitte Material mit Aufgaben auswählen.");
+  }
   if (estimateRequestBytes(materials) > MAX_REQUEST_BYTES) {
     throw new AiResponseError(
       "Die ausgewählten Materialien sind zusammen zu groß (max. ca. 30 MB pro Test). Bitte weniger Dateien auswählen.",
@@ -21,7 +24,7 @@ export async function generateTest(params: GenerateParams): Promise<Test> {
   const client = getClient();
   const model = getSettings().generationModel;
   onProgress?.({ phase: "preparing", questionsSoFar: 0 });
-  const materialBlocks = await materialsToContent(materials);
+  const materialBlocks = hasMaterials ? await materialsToContent(materials) : [];
   onProgress?.({ phase: "analyzing", questionsSoFar: 0 });
 
   const stream = client.beta.messages.stream(
@@ -30,12 +33,15 @@ export async function generateTest(params: GenerateParams): Promise<Test> {
       max_tokens: 64000,
       betas: [FALLBACK_BETA],
       fallbacks: "default",
-      system: GENERATION_SYSTEM_PROMPT,
+      system: generationSystemPrompt(hasMaterials),
       output_config: { effort: "high", format: betaZodOutputFormat(GeneratedTestSchema) },
       messages: [
         {
           role: "user",
-          content: [...materialBlocks, { type: "text", text: buildTaskInstruction(settings) }],
+          content: [
+            ...materialBlocks,
+            { type: "text", text: buildTaskInstruction(settings, { hasMaterials, subjectName: params.subjectName }) },
+          ],
         },
       ],
     },

@@ -22,7 +22,7 @@ export default function NewPlanPage({ subjectId }: { subjectId: string }) {
   const [startDate, setStartDate] = useState(todayISO());
   const [week, setWeek] = useState(DEFAULT_WEEK);
   const [selected, setSelected] = useState<Set<string>>(() => new Set(materials.map((m) => m.id)));
-  const [source, setSource] = useState<"ai" | "manual">(materials.length ? "ai" : "manual");
+  const [source, setSource] = useState<"ai" | "manual">("ai");
   const [manualText, setManualText] = useState("");
   const [enrich, setEnrich] = useState(true);
   const [focus, setFocus] = useState("");
@@ -44,12 +44,12 @@ export default function NewPlanPage({ subjectId }: { subjectId: string }) {
   const dayCount = validDates ? studyDayCount(startDate, examDate, week) : 0;
   const lines = parseTopicLines(manualText);
   const useAi = source === "ai" || enrich;
+  const noMaterial = selected.size === 0;
 
   let blocker: string | null = null;
   if (!validDates) blocker = "Das Prüfungsdatum muss nach dem Start liegen.";
   else if (minutes === 0) blocker = "Bitte für mindestens einen Wochentag Lernzeit eintragen.";
   else if (source === "manual" && lines.length === 0) blocker = "Bitte mindestens ein Thema eingeben.";
-  else if (source === "ai" && selected.size === 0) blocker = "Bitte Material auswählen, aus dem Claude die Themen ableiten soll.";
   else if (useAi && ai.state === "unavailable") blocker = ai.reason ?? "Claude ist nicht verfügbar.";
 
   function toggle(id: string) {
@@ -94,8 +94,13 @@ export default function NewPlanPage({ subjectId }: { subjectId: string }) {
       <div className="card generating stack-sm" aria-live="polite">
         <div className="spinner" />
         <h2>
-          {progress.phase === "preparing" && "Material wird vorbereitet …"}
-          {progress.phase === "analyzing" && (source === "manual" ? "Claude schätzt deine Themen ein …" : "Claude sucht die Prüfungsthemen …")}
+          {progress.phase === "preparing" && (noMaterial ? "Wird vorbereitet …" : "Material wird vorbereitet …")}
+          {progress.phase === "analyzing" &&
+            (source === "manual"
+              ? "Claude schätzt deine Themen ein …"
+              : noMaterial
+                ? "Claude stellt die Prüfungsthemen zusammen …"
+                : "Claude sucht die Prüfungsthemen …")}
           {progress.phase === "writing" &&
             (progress.questionsSoFar > 0 ? `${progress.questionsSoFar} Themen gefunden …` : "Themenliste wird geschrieben …")}
         </h2>
@@ -166,13 +171,12 @@ export default function NewPlanPage({ subjectId }: { subjectId: string }) {
             className={`card mode-card ${source === "ai" ? "active" : ""}`}
             onClick={() => setSource("ai")}
             aria-pressed={source === "ai"}
-            disabled={materials.length === 0}
           >
             <strong>Claude schlägt die Themen vor</strong>
             <span className="muted small">
-              {materials.length
-                ? "Aus deinem Material – mit Zeitbedarf, Wichtigkeit und Fundstellen."
-                : "Dafür zuerst Material im Fach hochladen."}
+              {noMaterial
+                ? `Ohne Material: die typischen Prüfungsthemen in „${subject.name}“, aus Claudes Fachwissen.`
+                : "Aus deinem Material – mit Zeitbedarf, Wichtigkeit und Fundstellen."}
             </span>
           </button>
           <button
@@ -200,7 +204,7 @@ export default function NewPlanPage({ subjectId }: { subjectId: string }) {
             </label>
             <label className="check">
               <input type="checkbox" checked={enrich} onChange={(e) => setEnrich(e.target.checked)} />
-              Zeitbedarf, Wichtigkeit und Fundstellen von Claude schätzen lassen
+              {noMaterial ? "Zeitbedarf und Wichtigkeit" : "Zeitbedarf, Wichtigkeit und Fundstellen"} von Claude schätzen lassen
             </label>
             {!enrich && <p className="muted small">Ohne Claude bekommt jedes Thema 60 Minuten – du kannst das im nächsten Schritt anpassen.</p>}
           </>
@@ -208,10 +212,13 @@ export default function NewPlanPage({ subjectId }: { subjectId: string }) {
       </section>
 
       <section className="card stack-sm">
-        <h2>Material</h2>
-        <p className="muted small">Wird für die Themen, die Übungstests und die Probeklausur genutzt.</p>
+        <h2>Material und Hinweise</h2>
+        <p className="muted small">
+          Material wird für die Themen, die Übungstests, die Probeklausur und die Lernzettel genutzt. Ohne Material erstellt
+          Claude alles aus seinem Fachwissen – je genauer deine Hinweise, desto besser passt es.
+        </p>
         {materials.length === 0 ? (
-          <p className="muted">Noch kein Material in diesem Fach.</p>
+          <p className="muted">Noch kein Material in diesem Fach – das geht auch ohne.</p>
         ) : (
           <ul className="material-list">
             {materials.map((m) => (
@@ -226,12 +233,16 @@ export default function NewPlanPage({ subjectId }: { subjectId: string }) {
           </ul>
         )}
         <label className="field">
-          <span>Hinweise für Claude (optional)</span>
+          <span>Hinweise für Claude {noMaterial ? "(empfohlen ohne Material)" : "(optional)"}</span>
           <input
             id="plan-focus"
             className="input"
             value={focus}
-            placeholder="z. B. „Kapitel 5 kann ich schon“ oder „Beweise kommen nicht dran“"
+            placeholder={
+              noMaterial
+                ? "z. B. „Uni, 1. Semester, Klausur 90 Min.“ oder „Kapitel 1–6, Schwerpunkt Kurvendiskussion“"
+                : "z. B. „Kapitel 5 kann ich schon“ oder „Beweise kommen nicht dran“"
+            }
             onChange={(e) => setFocus(e.target.value)}
           />
         </label>
