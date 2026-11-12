@@ -44,6 +44,7 @@ export default function NewTestPage({ subjectId }: { subjectId: string }) {
   const { fresh, used } = splitMaterials(
     materials,
     store.tests.filter((t) => t.subjectId === subjectId),
+    store.plans.filter((p) => p.subjectId === subjectId),
   );
   const [preview, setPreview] = useState<Material | null>(null);
   const [settings, setSettings] = useState<GenerationSettings>(() => {
@@ -212,15 +213,15 @@ export default function NewTestPage({ subjectId }: { subjectId: string }) {
         )}
         {used.length > 0 && (
           <details className="used-materials" open={used.some((u) => selected.has(u.material.id))}>
-            <summary className="small">Material aus früheren Tests wiederverwenden ({used.length})</summary>
+            <summary className="small">Material aus früheren Tests und Lernplänen wiederverwenden ({used.length})</summary>
             <ul className="material-list">
-              {used.map(({ material, tests }) => (
+              {used.map(({ material, tests, plans }) => (
                 <MaterialRow
                   key={material.id}
                   material={material}
                   onPreview={setPreview}
                   actions={false}
-                  extra={<> · aus „{tests[0].title}“</>}
+                  extra={<> · aus „{tests[0]?.title ?? plans[0].title}“</>}
                   selectable={{ checked: selected.has(material.id), onToggle: () => toggleMaterial(material.id) }}
                 />
               ))}

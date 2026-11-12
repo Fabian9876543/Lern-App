@@ -440,3 +440,29 @@ export function topicStatus(plan: StudyPlan, tests: Test[], attempts: Attempt[])
 export function formatLongDate(iso: string): string {
   return parseISO(iso).toLocaleDateString("de-DE", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
 }
+
+// ---------- Kalender ----------
+
+/** Monat als "YYYY-MM", n Monate weiter (oder zurück). */
+export function addMonths(month: string, n: number): string {
+  const [y, m] = month.split("-").map(Number);
+  const d = new Date(y, m - 1 + n, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
+export function formatMonth(month: string): string {
+  const [y, m] = month.split("-").map(Number);
+  return new Date(y, m - 1, 1).toLocaleDateString("de-DE", { month: "long", year: "numeric" });
+}
+
+/** Alle Tage der Kalenderansicht eines Monats: volle Wochen von Montag bis Sonntag. */
+export function monthGrid(month: string): string[] {
+  const first = `${month}-01`;
+  const [y, m] = month.split("-").map(Number);
+  const last = `${month}-${String(new Date(y, m, 0).getDate()).padStart(2, "0")}`;
+  const start = addDays(first, -((weekdayOf(first) + 6) % 7));
+  const end = addDays(last, (7 - weekdayOf(last)) % 7);
+  const days: string[] = [];
+  for (let d = start; d <= end; d = addDays(d, 1)) days.push(d);
+  return days;
+}

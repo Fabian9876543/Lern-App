@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  addMonths,
+  formatMonth,
+  monthGrid,
   addDays,
   addExtraReviews,
   attemptTopicPercents,
@@ -240,5 +243,24 @@ describe("Themenstand", () => {
     const result = attemptTopicPercents(attempt, test, topics);
     expect(result.get("a")).toBe(50);
     expect(result.get("b")).toBe(100);
+  });
+});
+
+describe("Kalender", () => {
+  it("zeigt volle Wochen von Montag bis Sonntag", () => {
+    const nov = monthGrid("2026-11"); // 1.11.2026 ist ein Sonntag
+    expect(nov[0]).toBe("2026-10-26");
+    expect(nov.at(-1)).toBe("2026-12-06");
+    expect(nov).toHaveLength(42);
+    const feb = monthGrid("2027-02"); // 1.2.2027 ist ein Montag, 28.2. ein Sonntag
+    expect(feb[0]).toBe("2027-02-01");
+    expect(feb.at(-1)).toBe("2027-02-28");
+    expect(feb).toHaveLength(28);
+  });
+
+  it("blättert über Jahresgrenzen", () => {
+    expect(addMonths("2026-12", 1)).toBe("2027-01");
+    expect(addMonths("2026-01", -1)).toBe("2025-12");
+    expect(formatMonth("2026-11")).toBe("November 2026");
   });
 });

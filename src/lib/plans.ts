@@ -164,6 +164,24 @@ export function planHasMaterials(plan: StudyPlan): boolean {
   return planMaterials(plan).length > 0;
 }
 
+/** Fügt dem Plan Material hinzu; Tests und Lernzettel, die ab jetzt entstehen, nutzen es. */
+export function addPlanMaterials(planId: string, materialIds: string[]): void {
+  repo.updatePlan(planId, (p) => ({ ...p, materialIds: [...new Set([...p.materialIds, ...materialIds])] }));
+}
+
+/** Nimmt Material aus dem Plan (die Datei selbst bleibt im Fach). */
+export function removePlanMaterial(planId: string, materialId: string): void {
+  repo.updatePlan(planId, (p) => ({ ...p, materialIds: p.materialIds.filter((id) => id !== materialId) }));
+}
+
+/** Ungefähre Fragenzahl des Tests zu einer Plan-Aufgabe (null bei Aufgaben ohne Test). */
+export function taskQuestionCount(task: PlanTask): number | null {
+  if (task.type === "practice") return Math.min(12, Math.max(4, Math.round(task.minutes / 3)));
+  if (task.type === "review") return Math.min(10, Math.max(4, Math.round(task.minutes / 3)));
+  if (task.type === "mock_exam") return Math.min(20, Math.max(8, Math.round(task.minutes / 6)));
+  return null;
+}
+
 function subjectNameOf(plan: StudyPlan): string {
   return getState().subjects.find((s) => s.id === plan.subjectId)?.name ?? "";
 }
@@ -202,10 +220,16 @@ async function generatePlanTest(
 /** Fundstellen, die nichts über das Material sagen (z. B. bei Plänen ohne Material). */
 const NO_SOURCE = /^(kein|nicht im) material$/i;
 
+/** Fundstelle eines Themas oder "", wenn sie nichts über das Material sagt. */
+export function usableSource(sources: string): string {
+  const s = sources.trim();
+  return NO_SOURCE.test(s) ? "" : s;
+}
+
 function topicFocus(topics: PlanTopic[]): string {
   return topics
     .map((t) => {
-      const source = t.sources.trim() && !NO_SOURCE.test(t.sources.trim()) ? ` – Fundstelle: ${t.sources.trim()}` : "";
+      const source = usableSource(t.sources) ? ` – Fundstelle: ${usableSource(t.sources)}` : "";
       return `„${t.name}“${t.description ? ` (${t.description})` : ""}${source}`;
     })
     .join("; ");
@@ -272,7 +296,7 @@ export async function startTaskTest(
     test = await generatePlanTest(
       plan,
       baseSettings({
-        questionCount: Math.min(12, Math.max(4, Math.round(task.minutes / 3))),
+        questionCount: taskQuestionCount(task)!,
         focus: `Übungstest zum Thema ${topicFocus(topics)}. Nur Aufgaben zu diesem Thema.`,
         topicNames: topics.map((t) => t.name),
       }),
@@ -302,7 +326,7 @@ export async function startTaskTest(
       test = await generatePlanTest(
         plan,
         baseSettings({
-          questionCount: Math.min(10, Math.max(4, Math.round(task.minutes / 3))),
+          questionCount: taskQuestionCount(task)!,
           difficulty: "medium",
           focus: `Kurze Wiederholung zu ${topicFocus(reviewTopics)}. Prüfe die wichtigsten Kernpunkte.`,
           topicNames: reviewTopics.map((t) => t.name),
@@ -316,7 +340,7 @@ export async function startTaskTest(
     test = await generatePlanTest(
       plan,
       baseSettings({
-        questionCount: Math.min(20, Math.max(8, Math.round(task.minutes / 6))),
+        questionCount: taskQuestionCount(task)!,
         focus: `Probeklausur im Stil der echten Prüfung über alle Themen. Gewichte die Themen nach Wichtigkeit (zuerst die wichtigsten). Wenn Altklausuren im Material sind, orientiere dich an deren Aufbau und Niveau. Themen: ${topicFocus(weighted)}`,
         topicNames: plan.topics.map((t) => t.name),
       }),
@@ -389,7 +413,7 @@ export async function createStudyNote(
     topic: {
       name: topic.name,
       description: topic.description,
-      sources: NO_SOURCE.test(topic.sources.trim()) ? "" : topic.sources.trim(),
+      sources: usableSource(topic.sources),
     },
     planTopics: plan.topics.map((t) => t.name),
     minutes: learnMinutes(plan, topic),

@@ -2,7 +2,9 @@ import platform from "@platform-impl";
 import { useEffect, useRef, useState } from "react";
 import { confirmDialog, promptDialog } from "../components/Dialogs";
 import Modal from "../components/Modal";
+import PlanMaterials from "../components/PlanMaterials";
 import { TaskRow, TopicEditor, TopicStatusList, WeekdayMinutesInput } from "../components/PlanParts";
+import TaskDetails from "../components/TaskDetails";
 import { summarize } from "../lib/attempts";
 import {
   daysBetween,
@@ -24,7 +26,7 @@ import {
   startPlacementTest,
   startTaskTest,
 } from "../lib/plans";
-import { navigate } from "../router";
+import { navigate, routeQuery } from "../router";
 import { repo, useStore, type StoreState } from "../store/store";
 import type { GenerationProgress } from "../targets/types";
 import type { PlanTask, StudyPlan } from "../types";
@@ -136,10 +138,20 @@ export default function PlanPage({ planId }: { planId: string }) {
         </div>
       )}
       {!planHasMaterials(plan) && (
-        <div className="callout">
-          <strong>Ohne Material:</strong> Übungstests, Wiederholungen, Probeklausur und Lernzettel erstellt Claude aus
-          seinem Fachwissen. Das kann vom Stoff deiner Veranstaltung abweichen – gleiche im Zweifel mit Vorlesung, Skript
-          oder Buch ab.
+        <div className="callout stack-xs">
+          <span>
+            <strong>Ohne Material:</strong> Übungstests, Wiederholungen, Probeklausur und Lernzettel erstellt Claude aus
+            seinem Fachwissen. Das kann vom Stoff deiner Veranstaltung abweichen – gleiche im Zweifel mit Vorlesung, Skript
+            oder Buch ab.
+          </span>
+          <span>
+            <button
+              className="link-btn"
+              onClick={() => document.getElementById("plan-material")?.scrollIntoView({ behavior: "smooth", block: "start" })}
+            >
+              Material nachträglich hinzufügen ↓
+            </button>
+          </span>
         </div>
       )}
       {error && <div className="callout callout-error">{error}</div>}
@@ -200,6 +212,8 @@ function DraftView({
         </p>
         <TopicEditor topics={plan.topics} onChange={(topics) => repo.updatePlan(plan.id, { topics })} />
       </section>
+
+      <PlanMaterials plan={plan} />
 
       <section className="card stack-sm">
         <h2>2. Einstufungstest (optional)</h2>
@@ -266,6 +280,8 @@ function ActiveView({
   runWithTest: RunWithTest;
 }) {
   const [showAll, setShowAll] = useState(false);
+  // Aus dem Kalender: #/plan/<id>?task=<Aufgabe> öffnet direkt deren Details.
+  const [detailId, setDetailId] = useState<string | null>(() => routeQuery().get("task"));
   const today = todayISO();
   const status = topicStatus(plan, store.tests, store.attempts);
   const totalMinutes = plan.tasks.reduce((s, t) => s + t.minutes, 0);
@@ -289,44 +305,64 @@ function ActiveView({
     if (ok) reopenPlan(plan.id);
   }
 
-  const row = (t: PlanTask, showDate?: boolean) => {
+  /** Ergebnis, Test und Hauptaktion einer Aufgabe – für die Zeile und die Detailansicht. */
+  const infoFor = (t: PlanTask) => {
     const test = t.testId ? store.tests.find((x) => x.id === t.testId) : undefined;
     const attempts = test ? store.attempts.filter((a) => a.testId === test.id) : [];
     const open = attempts.find((a) => a.status === "in_progress");
     const doneAttempt = t.attemptId ? attempts.find((a) => a.id === t.attemptId) : undefined;
     const resultPercent = doneAttempt && test ? summarize(doneAttempt, test).percent : null;
-    const isTestTask = t.type === "practice" || t.type === "review" || t.type === "mock_exam";
     const noteTopicId = t.type === "learn" ? t.topicIds[0] : undefined;
     const hasNote = !!noteTopicId && !!noteFor(store.notes, plan.id, noteTopicId);
-    let actionLabel: string | undefined;
-    let onAction: (() => void) | undefined;
+    let action: { label: string; run: () => void } | undefined;
     if (noteTopicId) {
-      actionLabel = hasNote ? "Lernzettel" : "Lernzettel erstellen";
-      onAction = () => navigate(`/plan/${plan.id}/note/${noteTopicId}?task=${t.id}${hasNote ? "" : "&create=1"}`);
+      action = {
+        label: hasNote ? "Lernzettel" : "Lernzettel erstellen",
+        run: () => navigate(`/plan/${plan.id}/note/${noteTopicId}?task=${t.id}${hasNote ? "" : "&create=1"}`),
+      };
+    } else if (t.type === "practice" || t.type === "review" || t.type === "mock_exam") {
+      let label: string;
+      if (open) label = "Fortsetzen";
+      else if (t.status === "done") label = "Nochmal";
+      else if (t.type === "mock_exam") label = "Probeklausur starten";
+      else if (t.type === "review") label = "Wiederholen";
+      else label = "Übungstest starten";
+      action = {
+        label,
+        run: () => runWithTest(t.type === "mock_exam" ? "Probeklausur" : "Test", (opts) => startTaskTest(plan.id, t.id, opts)),
+      };
     }
-    if (isTestTask) {
-      onAction = () => runWithTest(t.type === "mock_exam" ? "Probeklausur" : "Test", (opts) => startTaskTest(plan.id, t.id, opts));
-      if (open) actionLabel = "Fortsetzen";
-      else if (t.status === "done") actionLabel = "Nochmal";
-      else if (t.type === "mock_exam") actionLabel = "Probeklausur starten";
-      else if (t.type === "review") actionLabel = "Wiederholen";
-      else actionLabel = "Übungstest starten";
-    }
+    return {
+      test,
+      hasNote,
+      resultPercent,
+      action,
+      onResult: doneAttempt ? () => navigate(`/result/${doneAttempt.id}`) : undefined,
+    };
+  };
+
+  const toggle = (t: PlanTask) => setTaskStatus(plan.id, t.id, t.status === "done" ? "open" : "done");
+
+  const row = (t: PlanTask, showDate?: boolean) => {
+    const info = infoFor(t);
     return (
       <TaskRow
         key={t.id}
         task={t}
-        topics={plan.topics}
         showDate={showDate ? formatDay(t.date) : undefined}
-        actionLabel={actionLabel}
-        resultPercent={resultPercent}
+        actionLabel={info.action?.label}
+        resultPercent={info.resultPercent}
         busy={false}
-        onToggle={() => setTaskStatus(plan.id, t.id, t.status === "done" ? "open" : "done")}
-        onAction={onAction}
-        onResult={doneAttempt ? () => navigate(`/result/${doneAttempt.id}`) : undefined}
+        onToggle={() => toggle(t)}
+        onOpen={() => setDetailId(t.id)}
+        onAction={info.action?.run}
+        onResult={info.onResult}
       />
     );
   };
+
+  const detailTask = detailId ? plan.tasks.find((t) => t.id === detailId) : undefined;
+  const detailInfo = detailTask ? infoFor(detailTask) : undefined;
 
   return (
     <>
@@ -418,6 +454,24 @@ function ActiveView({
           <summary>Erledigt aus vergangenen Tagen ({past.length})</summary>
           <ul className="task-list">{past.map((t) => row(t, true))}</ul>
         </details>
+      )}
+
+      <PlanMaterials plan={plan} />
+
+      {detailTask && detailInfo && (
+        <TaskDetails
+          plan={plan}
+          task={detailTask}
+          status={status}
+          test={detailInfo.test}
+          hasMaterial={planHasMaterials(plan)}
+          hasNote={detailInfo.hasNote}
+          resultPercent={detailInfo.resultPercent}
+          action={detailInfo.action}
+          onToggle={() => toggle(detailTask)}
+          onResult={detailInfo.onResult}
+          onClose={() => setDetailId(null)}
+        />
       )}
     </>
   );

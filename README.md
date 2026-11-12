@@ -55,7 +55,10 @@ Beide Varianten entstehen aus demselben Code (`src/targets/artifact` bzw. `src/t
   ermitteln lassen oder selbst eingeben (optional von Claude um Zeitbedarf, Wichtigkeit und Fundstellen ergänzt),
   optionaler Einstufungstest. Die App verteilt Lernen, Übungstests, Wiederholungen (nach ca. 2, 6 und 13 Tagen) und
   eine Probeklausur auf die Tage bis zur Prüfung, zeigt den Themenstand, plant bei schwachen Themen Zusatz-
-  wiederholungen ein und verteilt Verpasstes neu. Die Aufgaben des Tages stehen auf der Startseite.
+  wiederholungen ein und verteilt Verpasstes neu. Ein Klick auf eine Aufgabe zeigt, was zu tun ist, um welche Themen
+  es geht und wie dein Stand ist. Material lässt sich auch nachträglich hinzufügen – alles, was danach entsteht, nutzt es.
+- **Kalender auf der Startseite:** Monatsansicht mit den Lernaufgaben aller Lernpläne (in der Farbe des Fachs) und den
+  Prüfungsterminen. Ein Tag zeigt seine Aufgaben zum Abhaken; ein Klick öffnet die Aufgabe im Plan.
 - **Lernzettel:** Zu jeder Lern-Aufgabe im Plan schreibt Claude auf Knopfdruck einen Lernzettel – das Wichtigste,
   ein Vorgehen für typische Aufgaben, vorgerechnete Beispiele, typische Fehler und ein kurzer Selbstcheck. Er wird
   gespeichert und ist auch über den Themenstand erreichbar.

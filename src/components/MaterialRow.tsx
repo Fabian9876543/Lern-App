@@ -14,12 +14,15 @@ export default function MaterialRow({
   selectable,
   extra,
   actions = true,
+  trailing,
 }: {
   material: Material;
   onPreview?: (m: Material) => void;
   selectable?: { checked: boolean; onToggle: () => void };
   extra?: ReactNode;
   actions?: boolean;
+  /** Zusätzliche Knöpfe am Zeilenende. */
+  trailing?: ReactNode;
 }) {
   const naming = useNamingIds().has(m.id);
 
@@ -80,6 +83,7 @@ export default function MaterialRow({
           </button>
         </>
       )}
+      {trailing}
     </li>
   );
 }

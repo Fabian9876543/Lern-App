@@ -1,4 +1,3 @@
-import { useState } from "react";
 import type { TopicStatus } from "../lib/planner";
 import { WEEKDAYS_LONG, effectiveMinutes, formatMinutes } from "../lib/planner";
 import { newId } from "../lib/ids";
@@ -252,28 +251,26 @@ export function TopicStatusList({
 
 export function TaskRow({
   task,
-  topics,
   showDate,
   actionLabel,
   resultPercent,
   busy,
   onToggle,
+  onOpen,
   onAction,
   onResult,
 }: {
   task: PlanTask;
-  topics: PlanTopic[];
   showDate?: string;
   actionLabel?: string;
   resultPercent?: number | null;
   busy: boolean;
   onToggle: () => void;
+  /** Öffnet die Details zur Aufgabe. */
+  onOpen: () => void;
   onAction?: () => void;
   onResult?: () => void;
 }) {
-  const [open, setOpen] = useState(false);
-  const related = topics.filter((t) => task.topicIds.includes(t.id));
-  const single = related.length === 1 ? related[0] : null;
   const done = task.status === "done";
   return (
     <li className={`task-row task-${task.type} ${done ? "done" : ""}`}>
@@ -284,26 +281,19 @@ export function TaskRow({
         onChange={onToggle}
         aria-label={`${task.title} ${done ? "als offen markieren" : "als erledigt markieren"}`}
       />
-      <div className="task-body">
-        <div className="task-title">
+      <button type="button" className="task-body task-open" onClick={onOpen} aria-label={`${task.title} – Details`}>
+        <span className="task-title">
           <span>{task.title}</span>
           {task.extra && <span className="chip chip-partial">zusätzlich</span>}
-        </div>
-        <div className="muted small">
+        </span>
+        <span className="muted small task-meta">
           {showDate && <>{showDate} · </>}
           {TASK_LABELS[task.type]} · {formatMinutes(task.minutes)}
-          {single?.sources && task.type === "learn" && <> · {single.sources}</>}
-          {single?.description && task.type === "learn" && (
-            <>
-              {" · "}
-              <button className="link-btn small" onClick={() => setOpen((o) => !o)}>
-                {open ? "weniger" : "worum geht's?"}
-              </button>
-            </>
-          )}
-        </div>
-        {open && single?.description && <p className="small">{single.description}</p>}
-      </div>
+          <span className="task-more" aria-hidden="true">
+            Details ›
+          </span>
+        </span>
+      </button>
       <div className="task-actions">
         {resultPercent !== undefined && resultPercent !== null && onResult && (
           <button className="btn btn-ghost btn-sm" onClick={onResult}>

@@ -142,6 +142,14 @@ export default function NotePage({ planId, topicId }: { planId: string; topicId:
         </section>
       ) : note ? (
         <>
+          {!note.fromMaterial && withMaterial && (
+            <div className="callout row-between">
+              <span>Dein Lernplan hat inzwischen Material. Lass den Lernzettel neu schreiben, damit er sich darauf stützt.</span>
+              <button className="btn btn-primary btn-sm" onClick={write} disabled={ai.state !== "ready"}>
+                Mit Material neu schreiben
+              </button>
+            </div>
+          )}
           <article className="card">
             <Markdown className="study-note">{note.content}</Markdown>
           </article>

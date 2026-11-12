@@ -27,8 +27,8 @@ export default function SubjectPage({ subjectId }: { subjectId: string }) {
   const allTests = store.tests.filter((t) => t.subjectId === subjectId).sort((a, b) => b.createdAt - a.createdAt);
   const tests = allTests.filter((t) => !t.planId);
   const planTestCount = allTests.length - tests.length;
-  const { fresh, used } = splitMaterials(materials, tests);
   const plans = store.plans.filter((p) => p.subjectId === subjectId).sort((a, b) => a.examDate.localeCompare(b.examDate));
+  const { fresh, used } = splitMaterials(materials, tests, plans);
   const attempts = store.attempts.filter((a) => a.subjectId === subjectId);
 
   async function rename() {
@@ -94,9 +94,9 @@ export default function SubjectPage({ subjectId }: { subjectId: string }) {
         )}
         {used.length > 0 && (
           <details className="used-materials">
-            <summary className="small">Material aus früheren Tests ({used.length})</summary>
+            <summary className="small">Material aus früheren Tests und Lernplänen ({used.length})</summary>
             <ul className="material-list">
-              {used.map(({ material, tests: usedBy }) => (
+              {used.map(({ material, tests: usedBy, plans: inPlans }) => (
                 <MaterialRow
                   key={material.id}
                   material={material}
@@ -104,10 +104,13 @@ export default function SubjectPage({ subjectId }: { subjectId: string }) {
                   extra={
                     <>
                       {" · "}
-                      {usedBy.map((t, i) => (
-                        <span key={t.id}>
+                      {[
+                        ...usedBy.map((t) => ({ id: t.id, href: `#/test/${t.id}`, title: t.title })),
+                        ...inPlans.map((p) => ({ id: p.id, href: `#/plan/${p.id}`, title: `Lernplan „${p.title}“` })),
+                      ].map((link, i) => (
+                        <span key={link.id}>
                           {i > 0 && ", "}
-                          <a href={`#/test/${t.id}`}>{t.title}</a>
+                          <a href={link.href}>{link.title}</a>
                         </span>
                       ))}
                     </>
