@@ -1,7 +1,11 @@
 import platform from "@platform-impl";
 import { useEffect, useRef, useState } from "react";
 import { DIFFICULTY_LABELS, TYPE_LABELS } from "../ai/prompts";
-import { ROLE_LABELS, formatBytes } from "../lib/files";
+import MaterialPreview from "../components/MaterialPreview";
+import MaterialRow from "../components/MaterialRow";
+import MaterialUpload from "../components/MaterialUpload";
+import { formatBytes } from "../lib/files";
+import { splitMaterials } from "../lib/materialNames";
 import { IS_ARTIFACT } from "../platform";
 import { navigate, routeQuery } from "../router";
 import { repo, useStore } from "../store/store";
@@ -25,8 +29,9 @@ const DEFAULT_SETTINGS: GenerationSettings = {
   exactFormat: "original",
 };
 
-function defaultSelection(materials: Material[], mode: TestMode): Set<string> {
-  return new Set(materials.filter((m) => mode === "generated" || m.role !== "reference").map((m) => m.id));
+/** Neues Material ist für den nächsten Test gedacht – deshalb ist es vollständig vorausgewählt. */
+function defaultSelection(materials: Material[]): Set<string> {
+  return new Set(materials.map((m) => m.id));
 }
 
 export default function NewTestPage({ subjectId }: { subjectId: string }) {
@@ -35,6 +40,12 @@ export default function NewTestPage({ subjectId }: { subjectId: string }) {
   const modelLabel = platform.useGenerationModelLabel();
   const subject = store.subjects.find((s) => s.id === subjectId);
   const materials = store.materials.filter((m) => m.subjectId === subjectId);
+  // Neues Material (noch in keinem Test) steht oben; Material aus früheren Tests kann man wieder dazunehmen.
+  const { fresh, used } = splitMaterials(
+    materials,
+    store.tests.filter((t) => t.subjectId === subjectId),
+  );
+  const [preview, setPreview] = useState<Material | null>(null);
   const [settings, setSettings] = useState<GenerationSettings>(() => {
     const from = repo.getTest(routeQuery().get("from") ?? "");
     return from
@@ -44,7 +55,7 @@ export default function NewTestPage({ subjectId }: { subjectId: string }) {
   const [selected, setSelected] = useState<Set<string>>(() => {
     const from = repo.getTest(routeQuery().get("from") ?? "");
     if (from) return new Set(from.materialIds.filter((id) => materials.some((m) => m.id === id)));
-    return defaultSelection(materials, "exact");
+    return defaultSelection(fresh);
   });
   const [progress, setProgress] = useState<GenerationProgress | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -77,7 +88,6 @@ export default function NewTestPage({ subjectId }: { subjectId: string }) {
 
   function setMode(mode: TestMode) {
     setSettings((s) => ({ ...s, mode }));
-    setSelected(defaultSelection(materials, mode));
   }
 
   function toggleMaterial(id: string) {
@@ -181,27 +191,49 @@ export default function NewTestPage({ subjectId }: { subjectId: string }) {
       </section>
 
       <section className="card stack-sm">
-        <h2>2. Welches Material?</h2>
-        <ul className="material-list">
-          {materials.map((m) => (
-            <li key={m.id} className="material-item">
-              <label className="check grow">
-                <input type="checkbox" checked={selected.has(m.id)} onChange={() => toggleMaterial(m.id)} />
-                <span>{m.name}</span>
-              </label>
-              <span className={`chip role-chip role-${m.role}`}>{ROLE_LABELS[m.role]}</span>
-            </li>
-          ))}
-        </ul>
+        <h2>2. Material für diesen Test</h2>
+        <MaterialUpload
+          subjectId={subjectId}
+          onAdded={(ids) => setSelected((prev) => new Set([...prev, ...ids]))}
+        />
+        {fresh.length > 0 ? (
+          <ul className="material-list">
+            {fresh.map((m) => (
+              <MaterialRow
+                key={m.id}
+                material={m}
+                onPreview={setPreview}
+                selectable={{ checked: selected.has(m.id), onToggle: () => toggleMaterial(m.id) }}
+              />
+            ))}
+          </ul>
+        ) : (
+          <p className="muted small">Lade oben das Material für diesen Test hoch.</p>
+        )}
+        {used.length > 0 && (
+          <details className="used-materials" open={used.some((u) => selected.has(u.material.id))}>
+            <summary className="small">Material aus früheren Tests wiederverwenden ({used.length})</summary>
+            <ul className="material-list">
+              {used.map(({ material, tests }) => (
+                <MaterialRow
+                  key={material.id}
+                  material={material}
+                  onPreview={setPreview}
+                  actions={false}
+                  extra={<> · aus „{tests[0].title}“</>}
+                  selectable={{ checked: selected.has(material.id), onToggle: () => toggleMaterial(material.id) }}
+                />
+              ))}
+            </ul>
+          </details>
+        )}
         <p className="muted small">
           Ausgewählt: {chosen.length} {chosen.length === 1 ? "Datei" : "Dateien"} · {formatBytes(bytes)}
           {settings.mode === "exact" && hasTasks && !hasSolutions && (
             <> · Keine Lösungsdatei ausgewählt – Claude löst die Aufgaben dann selbst.</>
           )}
         </p>
-        <p className="muted small">
-          Rollen falsch? Du kannst sie auf der <a href={`#/subject/${subjectId}`}>Fachseite</a> ändern.
-        </p>
+        <p className="muted small">Die Rolle steuert, wie Claude das Material nutzt – bei Bedarf rechts ändern.</p>
       </section>
 
       <section className="card stack-sm">
@@ -302,6 +334,7 @@ export default function NewTestPage({ subjectId }: { subjectId: string }) {
         </button>
       </div>
       {blocker && <p className="muted small right">{blocker}</p>}
+      {preview && <MaterialPreview material={preview} onClose={() => setPreview(null)} />}
     </div>
   );
 }

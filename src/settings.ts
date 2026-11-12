@@ -10,6 +10,8 @@ export interface Settings {
   /** claude.ai-Version: Modellstufen. */
   generationTier: ModelTier;
   gradingTier: ModelTier;
+  /** Material mit nichtssagendem Dateinamen beim Hochladen von Claude benennen lassen. */
+  autoNameMaterials: boolean;
 }
 
 export const TIERS: { id: ModelTier; label: string; hint: string }[] = [
@@ -32,6 +34,7 @@ const DEFAULTS: Settings = {
   gradingModel: "claude-opus-5-5",
   generationTier: "complex",
   gradingTier: "default",
+  autoNameMaterials: true,
 };
 
 let cache: Settings | null = null;

@@ -1,10 +1,13 @@
 import { useSyncExternalStore } from "react";
-import { coerceGeneratedTest, coerceGrading, coerceTopicAnalysis } from "../../ai/coerce";
+import { coerceGeneratedTest, coerceGrading, coerceMaterialName, coerceTopicAnalysis } from "../../ai/coerce";
 import { countJsonKey, countQuestions, describeCorrectAnswer, normalizeQuestions } from "../../ai/normalize";
 import {
   GENERATION_SYSTEM_PROMPT,
   GRADING_JSON_FORMAT,
   GRADING_SYSTEM_PROMPT,
+  MATERIAL_NAME_JSON_FORMAT,
+  MATERIAL_NAME_PROMPT,
+  materialNameUserText,
   TEST_JSON_FORMAT,
   TOPIC_JSON_FORMAT,
   TOPIC_SYSTEM_PROMPT,
@@ -20,7 +23,8 @@ import { closePdf, openPdf, pageText, renderPage } from "../../lib/pdf";
 import { TIERS, getSettings } from "../../settings";
 import type { AnswerResponse, Material, Question, Test } from "../../types";
 import { formatLongDate } from "../../lib/planner";
-import type { AiGrade, AiStatus, GenerateParams, TopicAnalysisParams } from "../types";
+import type { MaterialRole } from "../../types";
+import type { AiGrade, AiStatus, GenerateParams, MaterialNameParams, TopicAnalysisParams } from "../types";
 import { artifactBackend } from "./storage";
 import { isSampleError, useCapability, type SampleFn } from "./claude";
 
@@ -232,6 +236,26 @@ export async function analyzeTopics(params: TopicAnalysisParams): Promise<TopicA
   });
   const parsed = coerceTopicAnalysis(raw);
   if (parsed.topics.length === 0) throw new AiResponseError("Claude hat keine Themen gefunden. Bitte erneut versuchen.");
+  return parsed;
+}
+
+// ---------- Material benennen ----------
+
+export async function suggestMaterialName(params: MaterialNameParams): Promise<{ name: string; role: MaterialRole | null }> {
+  const sample = await requireSample();
+  const useImage = !params.text?.trim() && !!params.image;
+  if (useImage) {
+    const limits = await sample.limits().catch(() => null);
+    if (!limits?.images) throw new AiResponseError("Bilder können hier nicht an Claude geschickt werden.");
+  }
+  const prompt = `${MATERIAL_NAME_PROMPT}\n\n${MATERIAL_NAME_JSON_FORMAT}\n\n${materialNameUserText(params.fileName, params.text)}`;
+  const raw = await sample.json(prompt, {
+    modelTier: "quick",
+    images: useImage ? [params.image!] : undefined,
+    signal: params.signal,
+  });
+  const parsed = coerceMaterialName(raw);
+  if (!parsed) throw new AiResponseError("Für das Material konnte kein Name ermittelt werden.");
   return parsed;
 }
 

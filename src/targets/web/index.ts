@@ -7,6 +7,7 @@ import { analyzeTopics } from "./analyzeTopics";
 import { describeError } from "./client";
 import { generateTest } from "./generateTest";
 import { gradeWithAi } from "./gradeAnswer";
+import { suggestMaterialName } from "./suggestName";
 
 function statusFor(apiKey: string): AiStatus {
   return apiKey.trim()
@@ -19,6 +20,7 @@ const impl: PlatformImpl = {
   generateTest,
   gradeWithAi,
   analyzeTopics,
+  suggestMaterialName,
   describeError,
   aiStatus: () => statusFor(getSettings().apiKey),
   useAiStatus: () => statusFor(useSettings().apiKey),

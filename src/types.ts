@@ -12,6 +12,8 @@ export interface Material {
   id: string;
   subjectId: string;
   name: string;
+  /** Ursprünglicher Dateiname, wenn der Name automatisch vergeben wurde. */
+  originalName?: string;
   kind: MaterialKind;
   mimeType: string;
   role: MaterialRole;

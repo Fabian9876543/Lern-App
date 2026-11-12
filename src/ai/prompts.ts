@@ -186,3 +186,23 @@ export const TOPIC_JSON_FORMAT = `Antworte ausschließlich mit einem JSON-Objekt
     }
   ]
 }`;
+
+// ---------- Material benennen ----------
+
+export const MATERIAL_NAME_PROMPT = `Du benennst eine hochgeladene Lerndatei für eine Lern-App. Der bisherige Dateiname sagt nichts über den Inhalt.
+
+Gib einen kurzen, aussagekräftigen Namen (höchstens 60 Zeichen), so wie man die Datei sinnvoll benennen würde: Art des Dokuments, Nummer und Thema – z. B. „Übungsblatt 3 – Integralrechnung“, „Lösungen zu Blatt 3“, „Skript Kap. 4: Ableitungen“, „Altklausur Analysis WS 24/25“. Ohne Dateiendung und ohne Anführungszeichen. Sprache: die Sprache des Materials.
+
+Bestimme außerdem die Rolle:
+- "tasks": Aufgaben ohne Lösungen
+- "solutions": nur Lösungen bzw. Musterlösungen
+- "tasks_with_solutions": Aufgaben zusammen mit ihren Lösungen
+- "reference": Lernmaterial wie Skript, Folien, Mitschrift oder Buchseiten`;
+
+export const MATERIAL_NAME_JSON_FORMAT = `Antworte ausschließlich mit einem JSON-Objekt: {"name": "…", "role": "tasks" | "solutions" | "tasks_with_solutions" | "reference"}`;
+
+export function materialNameUserText(fileName: string, text: string | undefined): string {
+  return text?.trim()
+    ? `Bisheriger Dateiname: ${fileName}\n\n<inhalt>\n${text.trim()}\n</inhalt>`
+    : `Bisheriger Dateiname: ${fileName}\n\nDas beigefügte Bild zeigt das Material (bzw. seine erste Seite).`;
+}

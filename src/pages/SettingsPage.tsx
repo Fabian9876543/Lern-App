@@ -4,6 +4,7 @@ import { confirmDialog } from "../components/Dialogs";
 import { exportBackup, importBackup } from "../lib/backup";
 import { formatBytes } from "../lib/files";
 import { IS_ARTIFACT } from "../platform";
+import { saveSettings, useSettings } from "../settings";
 import { repo, useStore } from "../store/store";
 
 export default function SettingsPage() {
@@ -11,6 +12,7 @@ export default function SettingsPage() {
   const [usage, setUsage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const { storageMode } = useStore();
+  const settings = useSettings();
 
   useEffect(() => {
     if (storageMode !== "local") return;
@@ -64,6 +66,24 @@ export default function SettingsPage() {
       </div>
 
       <platform.AiSettingsSection />
+
+      <section className="card stack-sm">
+        <h2>Material</h2>
+        <label className="check">
+          <input
+            id="auto-name-materials"
+            type="checkbox"
+            checked={settings.autoNameMaterials}
+            onChange={(e) => saveSettings({ autoNameMaterials: e.target.checked })}
+          />
+          Unklare Dateinamen automatisch benennen
+        </label>
+        <p className="muted small">
+          Heißt eine Datei zum Beispiel „IMG_2041.jpg“ oder „Scan 3.pdf“, liest Claude den Anfang und gibt ihr einen
+          passenden Namen wie „Übungsblatt 3 – Integralrechnung“ – samt passender Rolle. Das ist ein kurzer, sparsamer
+          Aufruf pro Datei. Ist Claude nicht verfügbar, nimmt die App die erste Textzeile oder das Datum.
+        </p>
+      </section>
 
       <section className="card stack-sm">
         <h2>Daten</h2>

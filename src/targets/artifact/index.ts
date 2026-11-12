@@ -1,7 +1,7 @@
 import { TIERS, useSettings } from "../../settings";
 import type { PlatformImpl } from "../types";
 import AiSettings from "./AiSettings";
-import { aiStatus, analyzeTopics, describeError, generateTest, gradeWithAi, useAiStatus } from "./ai";
+import { aiStatus, analyzeTopics, describeError, generateTest, gradeWithAi, suggestMaterialName, useAiStatus } from "./ai";
 import { artifactBackend } from "./storage";
 import { useCapability } from "./claude";
 
@@ -10,6 +10,7 @@ const impl: PlatformImpl = {
   generateTest,
   gradeWithAi,
   analyzeTopics,
+  suggestMaterialName,
   describeError,
   aiStatus,
   useAiStatus,

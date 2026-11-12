@@ -32,6 +32,13 @@ Beide Varianten entstehen aus demselben Code (`src/targets/artifact` bzw. `src/t
 ## Funktionen
 
 - Fächer mit beliebig vielen Materialien (PDF, Fotos/Bilder, Textdateien oder eingefügter Text)
+- **Material pro Test:** Neues Material steht oben in „Neues Material“ und kann auch direkt auf der Seite „Neuer
+  Test“ hochgeladen werden. Sobald daraus ein Test erstellt ist, wandert es zu diesem Test – die Liste ist wieder
+  frei für den nächsten. Früheres Material lässt sich bei Bedarf wieder dazunehmen.
+- **Automatische Namen:** Dateien mit nichtssagendem Namen („IMG_2041.jpg“, „Scan 3.pdf“, eingefügter Text) benennt
+  Claude anhand des Inhalts (z. B. „Übungsblatt 3 – Integralrechnung“) und schlägt die Rolle vor; ohne Claude gibt es
+  einen Ersatznamen aus der ersten Textzeile oder dem Datum. Abschaltbar in den Einstellungen; Material lässt sich
+  jederzeit umbenennen.
 - Jede Datei bekommt eine Rolle: *Aufgaben*, *Lösungen*, *Aufgaben + Lösungen* oder *Lernmaterial / Referenz*
   (wird anhand des Dateinamens vorgeschlagen)
 - Aufgabenformate: Single Choice, Multiple Choice, Zahlenergebnis (mit Toleranz, Komma oder Punkt), Kurzantwort und

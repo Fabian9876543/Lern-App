@@ -55,3 +55,10 @@ export const TopicAnalysisSchema = z.object({
 
 export type GeneratedTopic = z.infer<typeof GeneratedTopicSchema>;
 export type TopicAnalysis = z.infer<typeof TopicAnalysisSchema>;
+
+export const MaterialNameSchema = z.object({
+  name: z.string().describe("Kurzer, aussagekräftiger Name, höchstens 60 Zeichen, ohne Dateiendung"),
+  role: z.enum(["tasks", "solutions", "tasks_with_solutions", "reference"]),
+});
+
+export type MaterialNameSuggestion = z.infer<typeof MaterialNameSchema>;

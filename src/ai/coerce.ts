@@ -1,3 +1,4 @@
+import type { MaterialRole } from "../types";
 import type { GeneratedQuestion, GeneratedTest, GeneratedTopic, GradingResult, TopicAnalysis } from "./schemas";
 
 /**
@@ -121,3 +122,14 @@ export function coerceTopicAnalysis(raw: unknown): TopicAnalysis {
 }
 
 const DIFFICULTY_TO_IMPORTANCE = ["high", "medium", "low"] as const;
+
+const ROLES = ["tasks", "solutions", "tasks_with_solutions", "reference"] as const;
+
+/** Namensvorschlag für ein Material; null, wenn kein Name erkennbar ist. */
+export function coerceMaterialName(raw: unknown): { name: string; role: MaterialRole | null } | null {
+  if (!raw || typeof raw !== "object") return null;
+  const r = raw as Record<string, unknown>;
+  const name = str(r.name).trim();
+  if (!name) return null;
+  return { name, role: (ROLES as readonly string[]).includes(r.role as string) ? (r.role as MaterialRole) : null };
+}

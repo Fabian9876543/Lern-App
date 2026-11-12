@@ -1,7 +1,7 @@
 import type { ComponentType } from "react";
 import type { Backend } from "../store/types";
 import type { TopicAnalysis } from "../ai/schemas";
-import type { AnswerResponse, GenerationSettings, Material, Question, Test, Verdict } from "../types";
+import type { AnswerResponse, GenerationSettings, Material, MaterialRole, Question, Test, Verdict } from "../types";
 
 export type GenerationPhase = "preparing" | "analyzing" | "writing";
 
@@ -30,6 +30,15 @@ export interface TopicAnalysisParams {
   onProgress?: (p: GenerationProgress) => void;
 }
 
+export interface MaterialNameParams {
+  fileName: string;
+  /** Textauszug des Materials (z. B. erste PDF-Seiten). */
+  text?: string;
+  /** Bild des Materials bzw. der ersten Seite, wenn es keinen Text gibt. */
+  image?: Blob;
+  signal?: AbortSignal;
+}
+
 export interface AiGrade {
   score: number;
   verdict: Verdict;
@@ -50,6 +59,8 @@ export interface PlatformImpl {
   gradeWithAi(question: Question, response: AnswerResponse, signal?: AbortSignal): Promise<AiGrade>;
   /** Lernplan: Themen aus dem Material ermitteln oder vorgegebene Themen ergänzen. */
   analyzeTopics(params: TopicAnalysisParams): Promise<TopicAnalysis>;
+  /** Schlägt für ein Material mit nichtssagendem Dateinamen Name und Rolle vor. */
+  suggestMaterialName(params: MaterialNameParams): Promise<{ name: string; role: MaterialRole | null }>;
   describeError(error: unknown): string;
   /** Synchroner Schnappschuss des KI-Status (für Code außerhalb von Komponenten). */
   aiStatus(): AiStatus;

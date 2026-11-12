@@ -629,6 +629,24 @@ p {
   color: var(--text);
   overflow-wrap: anywhere;
 }
+.material-name .link-btn {
+  color: var(--text);
+}
+.material-check {
+  width: 1.1rem;
+  height: 1.1rem;
+  accent-color: var(--primary);
+  flex-shrink: 0;
+}
+.used-materials > summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-weight: 600;
+  padding: 0.3rem 0;
+}
+.used-materials[open] > summary {
+  margin-bottom: 0.4rem;
+}
 
 /* ---------- New test ---------- */
 
