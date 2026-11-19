@@ -26,6 +26,7 @@ import { verdictFromScore } from "../../lib/grading";
 import { newId } from "../../lib/ids";
 import { closePdf, openPdf, pageText, renderPage } from "../../lib/pdf";
 import { assembleTranscript, chooseForTranscription, inBatches, type Segment } from "../../lib/transcribe";
+import { byteLength, makeExcerpt, wrapMaterial, type ExcerptStrategy, type SourceMaterial } from "../../lib/excerpt";
 import { TIERS, getSettings } from "../../settings";
 import type { AnswerResponse, Material, Question, Test } from "../../types";
 import { formatLongDate } from "../../lib/planner";
@@ -92,7 +93,7 @@ async function requireSample(): Promise<SampleFn> {
 const SCANNED_PAGE_TEXT_LIMIT = 40;
 
 interface PreparedMaterials {
-  text: string;
+  sources: SourceMaterial[];
   images: Blob[];
 }
 
@@ -114,7 +115,8 @@ async function segmentsOf(m: Material): Promise<Segment[]> {
   const stored = m.kind === "text" ? null : await loadTranscript(m);
   if (stored) return [{ kind: "text", text: stored }];
   if (m.kind === "text") {
-    const text = m.text ?? (await (await artifactBackend.loadMaterialBlob(m))?.text()) ?? "";
+    const text = m.text ?? (await (await artifactBackend.loadMaterialBlob(m))?.text());
+    if (text === undefined) throw new AiResponseError(`„${m.name}“ konnte nicht geladen werden.`);
     return [{ kind: "text", text }];
   }
   const blob = await artifactBackend.loadMaterialBlob(m);
@@ -213,7 +215,7 @@ async function prepareMaterials(sample: SampleFn, materials: Material[], opts: P
     }
   }
 
-  const parts: string[] = [];
+  const sources: SourceMaterial[] = [];
   const images: Blob[] = [];
   for (const [index, { m, segments }] of all.entries()) {
     const label = `Material ${index + 1}: „${m.name}“ – Rolle: ${ROLE_LABELS[m.role]}`;
@@ -231,9 +233,45 @@ async function prepareMaterials(sample: SampleFn, materials: Material[], opts: P
         return s.page !== undefined ? `--- Seite ${s.page} ---\n${content}` : content;
       })
       .join("\n\n");
-    parts.push(`<material titel="${label}">\n${body}\n</material>`);
+    sources.push({ label, role: m.role, body });
   }
-  return { text: parts.join("\n\n"), images };
+  return { sources, images };
+}
+
+/** Puffer für die Hinweiszeile zum Auszug und Rundung. */
+const SECTION_RESERVE = 2048;
+
+/**
+ * Baut den Prompt mit dem Material-Teil. Passt die Auswahl nicht in eine
+ * Anfrage (256 KB Text), kommt ein Auszug hinein – ausgewählt nach `strategy`.
+ */
+async function promptWithMaterials(
+  sample: SampleFn,
+  prepared: PreparedMaterials,
+  build: (section: string) => string,
+  strategy: ExcerptStrategy,
+): Promise<{ prompt: string; note: string | null }> {
+  if (prepared.sources.length === 0) return { prompt: build(""), note: null };
+  const limits = await sample.limits().catch(() => null);
+  const maxBytes = limits?.maxPromptBytes ?? 262_144;
+  const imageLine = prepared.images.length
+    ? `\nDazu sind ${prepared.images.length} Bilder beigefügt, nummeriert in der Reihenfolge, in der sie oben erwähnt werden.\n`
+    : "";
+  const section = (parts: { label: string; body: string }[], note: string | null) =>
+    `<materialien>\n${note ? `Hinweis: ${note} „[…]“ markiert ausgelassene Stellen.\n\n` : ""}${parts
+      .map((p) => wrapMaterial(p.label, p.body))
+      .join("\n\n")}\n</materialien>\n${imageLine}\n`;
+  const budget = maxBytes - byteLength(build(section([], null))) - SECTION_RESERVE;
+  const excerpt = makeExcerpt(prepared.sources, budget, strategy);
+  return { prompt: build(section(excerpt.parts, excerpt.note)), note: excerpt.note };
+}
+
+/** Wie der Auszug für einen Test gewählt wird. */
+function testStrategy(settings: GenerateParams["settings"]): ExcerptStrategy {
+  if (settings.mode === "exact") return { kind: "prefix" };
+  const query = [...(settings.topicNames ?? []), settings.focus].join(" ").trim();
+  if (query) return { kind: "relevance", query, seed: Date.now() };
+  return { kind: "sample", seed: Date.now() };
 }
 
 // ---------- Test erstellen ----------
@@ -249,19 +287,16 @@ export async function generateTest(params: GenerateParams): Promise<Test> {
 
   onProgress?.({ phase: "preparing", questionsSoFar: 0 });
   const prepared = await prepareMaterials(sample, materials, { signal, onProgress });
-  const materialPart = hasMaterials
-    ? `<materialien>
-${prepared.text}
-</materialien>
-${prepared.images.length ? `\nDazu sind ${prepared.images.length} Bilder beigefügt, nummeriert in der Reihenfolge, in der sie oben erwähnt werden.\n` : ""}
-`
-    : "";
-
-  const prompt = `${generationSystemPrompt(hasMaterials)}
+  const { prompt, note } = await promptWithMaterials(
+    sample,
+    prepared,
+    (section) => `${generationSystemPrompt(hasMaterials)}
 
 ${TEST_JSON_FORMAT}
 
-${materialPart}${buildTaskInstruction(settings, { hasMaterials, subjectName: params.subjectName })}`;
+${section}${buildTaskInstruction(settings, { hasMaterials, subjectName: params.subjectName })}`,
+    testStrategy(settings),
+  );
   await checkLimits(sample, prompt, prepared.images.length);
 
   onProgress?.({ phase: "analyzing", questionsSoFar: 0 });
@@ -293,7 +328,7 @@ ${materialPart}${buildTaskInstruction(settings, { hasMaterials, subjectName: par
     materialIds: materials.map((m) => m.id),
     settings,
     questions,
-    notes: parsed.notes,
+    notes: [note ? `Hinweis der App: ${note}` : "", parsed.notes].filter(Boolean).join("\n\n"),
     createdAt: Date.now(),
     model: `claude.ai – ${TIERS.find((t) => t.id === tier)?.label ?? tier}`,
   };
@@ -340,11 +375,12 @@ export async function analyzeTopics(params: TopicAnalysisParams): Promise<TopicA
     givenTopics: params.givenTopics,
     hasMaterials: materials.length > 0,
   });
-  const materialPart = materials.length ? `\n<materialien>\n${prepared.text}\n</materialien>\n` : "";
-  const imagePart = prepared.images.length
-    ? `\nDazu sind ${prepared.images.length} Bilder beigefügt, nummeriert in der Reihenfolge, in der sie oben erwähnt werden.\n`
-    : "";
-  const prompt = `${TOPIC_SYSTEM_PROMPT}\n\n${TOPIC_JSON_FORMAT}\n${materialPart}${imagePart}\n${instruction}`;
+  const { prompt, note } = await promptWithMaterials(
+    sample,
+    prepared,
+    (section) => `${TOPIC_SYSTEM_PROMPT}\n\n${TOPIC_JSON_FORMAT}\n\n${section}${instruction}`,
+    { kind: "coverage" },
+  );
   await checkLimits(sample, prompt, prepared.images.length);
   onProgress?.({ phase: "analyzing", questionsSoFar: 0 });
   const raw = await sample.json(prompt, {
@@ -356,7 +392,7 @@ export async function analyzeTopics(params: TopicAnalysisParams): Promise<TopicA
   });
   const parsed = coerceTopicAnalysis(raw);
   if (parsed.topics.length === 0) throw new AiResponseError("Claude hat keine Themen gefunden. Bitte erneut versuchen.");
-  return parsed;
+  return note ? { ...parsed, notes: [`Hinweis der App: ${note}`, parsed.notes].filter(Boolean).join("\n\n") } : parsed;
 }
 
 // ---------- Lernplan: Lernzettel ----------
@@ -366,14 +402,13 @@ export async function createStudyNote(params: StudyNoteParams): Promise<{ conten
   const sample = await requireSample();
   const tier = getSettings().generationTier;
   const prepared = await prepareMaterials(sample, materials, { signal });
-  const materialPart = materials.length
-    ? `<materialien>\n${prepared.text}\n</materialien>\n${
-        prepared.images.length
-          ? `\nDazu sind ${prepared.images.length} Bilder beigefügt, nummeriert in der Reihenfolge, in der sie oben erwähnt werden.\n`
-          : ""
-      }\n`
-    : "";
-  const prompt = `${STUDY_NOTE_SYSTEM_PROMPT}\n\n${materialPart}${buildStudyNoteInstruction({ ...params, hasMaterials: materials.length > 0 })}`;
+  const { prompt, note } = await promptWithMaterials(
+    sample,
+    prepared,
+    (section) =>
+      `${STUDY_NOTE_SYSTEM_PROMPT}\n\n${section}${buildStudyNoteInstruction({ ...params, hasMaterials: materials.length > 0 })}`,
+    { kind: "relevance", query: `${params.topic.name} ${params.topic.description}` },
+  );
   await checkLimits(sample, prompt, prepared.images.length);
   const result = await sample(prompt, {
     modelTier: tier,
@@ -382,8 +417,9 @@ export async function createStudyNote(params: StudyNoteParams): Promise<{ conten
     signal,
     onText: ({ text }) => onText?.(text),
   });
-  const content = cleanStudyNote(result.text);
-  if (!content) throw new AiResponseError("Claude hat keinen Lernzettel geliefert. Bitte erneut versuchen.");
+  const cleaned = cleanStudyNote(result.text);
+  if (!cleaned) throw new AiResponseError("Claude hat keinen Lernzettel geliefert. Bitte erneut versuchen.");
+  const content = note ? `${cleaned}\n\n---\n\n*Hinweis der App: ${note}*` : cleaned;
   return { content, model: `claude.ai – ${TIERS.find((t) => t.id === tier)?.label ?? tier}` };
 }
 

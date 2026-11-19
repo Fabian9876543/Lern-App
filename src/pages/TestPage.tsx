@@ -3,6 +3,7 @@ import { useState } from "react";
 import { describeCorrectAnswer } from "../ai/normalize";
 import { confirmDialog, promptDialog } from "../components/Dialogs";
 import Markdown from "../components/Markdown";
+import NotesCallout from "../components/NotesCallout";
 import QuestionEditor from "../components/QuestionEditor";
 import QuestionMeta from "../components/QuestionMeta";
 import { formatDate, startAttempt, summarize } from "../lib/attempts";
@@ -143,11 +144,7 @@ export default function TestPage({ testId }: { testId: string }) {
           </a>
         </div>
       )}
-      {test.notes && (
-        <div className="callout">
-          <strong>Hinweis von Claude:</strong> {test.notes}
-        </div>
-      )}
+      {test.notes && <NotesCallout notes={test.notes} />}
 
       <section className="card stack-sm">
         {inProgress && (

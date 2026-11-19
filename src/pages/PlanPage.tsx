@@ -2,6 +2,7 @@ import platform from "@platform-impl";
 import { useEffect, useRef, useState } from "react";
 import { confirmDialog, promptDialog } from "../components/Dialogs";
 import Modal from "../components/Modal";
+import NotesCallout from "../components/NotesCallout";
 import PlanMaterials from "../components/PlanMaterials";
 import { TaskRow, TopicEditor, TopicStatusList, WeekdayMinutesInput } from "../components/PlanParts";
 import TaskDetails from "../components/TaskDetails";
@@ -140,11 +141,7 @@ export default function PlanPage({ planId }: { planId: string }) {
         </p>
       </div>
 
-      {plan.notes && (
-        <div className="callout">
-          <strong>Hinweis von Claude:</strong> {plan.notes}
-        </div>
-      )}
+      {plan.notes && <NotesCallout notes={plan.notes} />}
       {!planHasMaterials(plan) && (
         <div className="callout stack-xs">
           <span>
