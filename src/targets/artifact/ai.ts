@@ -9,7 +9,10 @@ import {
   materialNameUserText,
   TEST_JSON_FORMAT,
   TOPIC_JSON_FORMAT,
+  MATERIAL_NOTE_SYSTEM_PROMPT,
   STUDY_NOTE_SYSTEM_PROMPT,
+  buildMaterialNoteInstruction,
+  splitNoteTitle,
   TOPIC_SYSTEM_PROMPT,
   buildStudyNoteInstruction,
   buildTaskInstruction,
@@ -37,6 +40,7 @@ import type {
   GenerateParams,
   GenerationProgress,
   MaterialNameParams,
+  MaterialNoteParams,
   StudyNoteParams,
   TopicAnalysisParams,
 } from "../types";
@@ -421,6 +425,37 @@ export async function createStudyNote(params: StudyNoteParams): Promise<{ conten
   if (!cleaned) throw new AiResponseError("Claude hat keinen Lernzettel geliefert. Bitte erneut versuchen.");
   const content = note ? `${cleaned}\n\n---\n\n*Hinweis der App: ${note}*` : cleaned;
   return { content, model: `claude.ai – ${TIERS.find((t) => t.id === tier)?.label ?? tier}` };
+}
+
+// ---------- Lernzettel aus Material ----------
+
+export async function createMaterialNote(
+  params: MaterialNoteParams,
+): Promise<{ title: string | null; content: string; model: string }> {
+  const { materials, signal, onText } = params;
+  if (materials.length === 0) throw new AiResponseError("Bitte mindestens ein Material auswählen.");
+  const sample = await requireSample();
+  const tier = getSettings().generationTier;
+  const prepared = await prepareMaterials(sample, materials, { signal });
+  const { prompt, note } = await promptWithMaterials(
+    sample,
+    prepared,
+    (section) => `${MATERIAL_NOTE_SYSTEM_PROMPT}\n\n${section}${buildMaterialNoteInstruction(params)}`,
+    params.focus.trim() ? { kind: "relevance", query: params.focus } : { kind: "coverage" },
+  );
+  await checkLimits(sample, prompt, prepared.images.length);
+  const result = await sample(prompt, {
+    modelTier: tier,
+    images: prepared.images.length ? prepared.images : undefined,
+    cache: false,
+    signal,
+    onText: ({ text }) => onText?.(text),
+  });
+  const { title, body } = splitNoteTitle(result.text);
+  const cleaned = cleanStudyNote(body);
+  if (!cleaned) throw new AiResponseError("Claude hat keinen Lernzettel geliefert. Bitte erneut versuchen.");
+  const content = note ? `${cleaned}\n\n---\n\n*Hinweis der App: ${note}*` : cleaned;
+  return { title, content, model: `claude.ai – ${TIERS.find((t) => t.id === tier)?.label ?? tier}` };
 }
 
 // ---------- Material benennen ----------

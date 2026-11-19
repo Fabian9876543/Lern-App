@@ -202,13 +202,24 @@ export interface StudyPlan {
 }
 
 /** Lernzettel zu einem Thema eines Lernplans, von Claude geschrieben. */
+/** Umfang eines Lernzettels aus Material. */
+export type NoteLength = "kurz" | "normal" | "ausfuehrlich";
+
+/**
+ * Lernzettel – entweder zu einem Thema eines Lernplans (planId + topicId) oder
+ * direkt aus ausgewähltem Material (materialIds).
+ */
 export interface StudyNote {
   id: string;
   subjectId: string;
-  planId: string;
-  topicId: string;
-  /** Themenname zum Zeitpunkt der Erstellung. */
+  planId?: string;
+  topicId?: string;
+  /** Titel: bei Lernplan-Zetteln der Themenname zum Zeitpunkt der Erstellung. */
   topicName: string;
+  /** Lernzettel aus Material: verwendetes Material, Schwerpunkt und Umfang (für „Neu schreiben“). */
+  materialIds?: string[];
+  focus?: string;
+  length?: NoteLength;
   /** Markdown mit LaTeX. */
   content: string;
   /** true: aus dem Material des Plans; false: aus Claudes Fachwissen. */

@@ -31,6 +31,7 @@ export default function SubjectPage({ subjectId }: { subjectId: string }) {
   const planTestCount = allTests.length - tests.length;
   const plans = store.plans.filter((p) => p.subjectId === subjectId).sort((a, b) => a.examDate.localeCompare(b.examDate));
   const { fresh, used } = splitMaterials(materials, tests, plans);
+  const notes = store.notes.filter((n) => n.subjectId === subjectId).sort((a, b) => b.createdAt - a.createdAt);
   const attempts = store.attempts.filter((a) => a.subjectId === subjectId);
 
   async function deleteFolder(folder: string, items: Material[]) {
@@ -105,7 +106,10 @@ export default function SubjectPage({ subjectId }: { subjectId: string }) {
           <p className="muted small">Gerade kein neues Material.</p>
         )}
         {fresh.length > 0 && (
-          <div className="right">
+          <div className="row-wrap right">
+            <button className="btn btn-ghost" onClick={() => navigate(`/subject/${subjectId}/new-note`)}>
+              Lernzettel daraus erstellen
+            </button>
             <button className="btn btn-primary" onClick={() => navigate(`/subject/${subjectId}/new-test`)}>
               Test aus diesem Material erstellen
             </button>
@@ -182,6 +186,43 @@ export default function SubjectPage({ subjectId }: { subjectId: string }) {
             );
           })}
         </div>
+      </section>
+
+      <section className="card stack-sm">
+        <div className="row-between">
+          <h2>Lernzettel</h2>
+          <button className="btn btn-ghost" onClick={() => navigate(`/subject/${subjectId}/new-note`)}>
+            + Lernzettel
+          </button>
+        </div>
+        {notes.length === 0 ? (
+          <p className="muted">
+            Claude fasst dein Material zu einem Lernzettel zusammen – mit dem Wichtigsten, vorgerechneten Beispielen,
+            typischen Fehlern und einem Selbstcheck.
+          </p>
+        ) : (
+          <div className="stack-sm">
+            {notes.map((n) => {
+              const plan = n.planId ? plans.find((p) => p.id === n.planId) : undefined;
+              const href = n.planId && n.topicId ? `#/plan/${n.planId}/note/${n.topicId}` : `#/note/${n.id}`;
+              const count = n.materialIds?.length ?? 0;
+              return (
+                <a key={n.id} className="card card-link card-inner row-between" href={href}>
+                  <span>
+                    <strong>{n.topicName}</strong>
+                    <span className="muted small">
+                      {" · "}
+                      {plan ? `Lernplan „${plan.title}“` : count === 1 ? "aus 1 Material" : `aus ${count} Materialien`}
+                      {" · "}
+                      {new Date(n.createdAt).toLocaleDateString("de-DE")}
+                    </span>
+                  </span>
+                  <span aria-hidden="true">›</span>
+                </a>
+              );
+            })}
+          </div>
+        )}
       </section>
 
       <section className="card stack-sm">

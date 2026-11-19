@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { isMarkdownMaterial, isSpreadsheet } from "../lib/files";
 import { closePdf, openPdf, renderPage } from "../lib/pdf";
+import { navigate } from "../router";
 import { repo } from "../store/store";
 import type { Material } from "../types";
 import Markdown from "./Markdown";
@@ -85,11 +86,24 @@ export default function MaterialPreview({ material, onClose }: { material: Mater
     };
   }, [showTranscript, transcript, material]);
 
-  const footer = hasTranscript ? (
-    <button className="btn btn-ghost btn-sm" onClick={() => setShowTranscript((s) => !s)}>
-      {showTranscript ? "Original anzeigen" : "Abgeschriebenen Text anzeigen"}
-    </button>
-  ) : undefined;
+  const footer = (
+    <>
+      {hasTranscript && (
+        <button className="btn btn-ghost btn-sm" onClick={() => setShowTranscript((s) => !s)}>
+          {showTranscript ? "Original anzeigen" : "Abgeschriebenen Text anzeigen"}
+        </button>
+      )}
+      <button
+        className="btn btn-ghost btn-sm"
+        onClick={() => {
+          onClose();
+          navigate(`/subject/${material.subjectId}/new-note?materials=${material.id}`);
+        }}
+      >
+        Lernzettel daraus erstellen
+      </button>
+    </>
+  );
 
   return (
     <Modal title={material.name} onClose={onClose} footer={footer}>

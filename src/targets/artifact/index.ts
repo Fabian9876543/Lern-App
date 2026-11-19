@@ -4,6 +4,7 @@ import AiSettings from "./AiSettings";
 import {
   aiStatus,
   analyzeTopics,
+  createMaterialNote,
   createStudyNote,
   describeError,
   generateTest,
@@ -20,6 +21,7 @@ const impl: PlatformImpl = {
   gradeWithAi,
   analyzeTopics,
   createStudyNote,
+  createMaterialNote,
   suggestMaterialName,
   describeError,
   aiStatus,

@@ -1,7 +1,7 @@
 import type { ComponentType } from "react";
 import type { Backend } from "../store/types";
 import type { TopicAnalysis } from "../ai/schemas";
-import type { AnswerResponse, GenerationSettings, Material, MaterialRole, Question, Test, Verdict } from "../types";
+import type { AnswerResponse, GenerationSettings, Material, MaterialRole, NoteLength, Question, Test, Verdict } from "../types";
 
 export type GenerationPhase = "preparing" | "transcribing" | "analyzing" | "writing";
 
@@ -61,6 +61,17 @@ export interface StudyNoteParams {
   onText?: (text: string) => void;
 }
 
+export interface MaterialNoteParams {
+  subjectName: string;
+  /** Thema oder Schwerpunkt – leer für den ganzen Stoff. */
+  focus: string;
+  length: NoteLength;
+  materials: Material[];
+  signal?: AbortSignal;
+  /** Bisher geschriebener Text (für die Live-Anzeige). */
+  onText?: (text: string) => void;
+}
+
 export interface AiGrade {
   score: number;
   verdict: Verdict;
@@ -83,6 +94,8 @@ export interface PlatformImpl {
   analyzeTopics(params: TopicAnalysisParams): Promise<TopicAnalysis>;
   /** Schreibt einen Lernzettel (Markdown) zu einem Thema des Lernplans. */
   createStudyNote(params: StudyNoteParams): Promise<{ content: string; model: string }>;
+  /** Schreibt einen Lernzettel (Markdown, mit Titel) direkt aus ausgewähltem Material. */
+  createMaterialNote(params: MaterialNoteParams): Promise<{ title: string | null; content: string; model: string }>;
   /** Schlägt für ein Material mit nichtssagendem Dateinamen Name und Rolle vor. */
   suggestMaterialName(params: MaterialNameParams): Promise<{ name: string; role: MaterialRole | null }>;
   describeError(error: unknown): string;

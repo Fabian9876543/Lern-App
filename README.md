@@ -84,6 +84,11 @@ Beide Varianten entstehen aus demselben Code (`src/targets/artifact` bzw. `src/t
   es geht und wie dein Stand ist. Material lässt sich auch nachträglich hinzufügen – alles, was danach entsteht, nutzt es.
 - **Kalender auf der Startseite:** Monatsansicht mit den Lernaufgaben aller Lernpläne (in der Farbe des Fachs) und den
   Prüfungsterminen. Ein Tag zeigt seine Aufgaben zum Abhaken; ein Klick öffnet die Aufgabe im Plan.
+- **Lernzettel aus Material:** Auf der Fachseite („+ Lernzettel“, „Lernzettel daraus erstellen“) oder aus der Vorschau
+  einer Datei: Material auswählen (ganze Ordner mit einem Häkchen), optional ein Thema bzw. einen Schwerpunkt angeben
+  und den Umfang wählen (Spickzettel, normal, ausführlich). Claude schreibt den Lernzettel mit Überblick, einem
+  Abschnitt pro Thema mit Fundstellen und Beispielen, typischen Fehlern und Selbstcheck. Er lässt sich umbenennen,
+  neu schreiben, als Markdown-Datei herunterladen und löschen; alle Lernzettel eines Fachs stehen auf der Fachseite.
 - **Lernzettel:** Zu jeder Lern-Aufgabe im Plan schreibt Claude auf Knopfdruck einen Lernzettel – das Wichtigste,
   ein Vorgehen für typische Aufgaben, vorgerechnete Beispiele, typische Fehler und ein kurzer Selbstcheck. Er wird
   gespeichert und ist auch über den Themenstand erreichbar.

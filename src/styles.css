@@ -1933,3 +1933,6 @@ details.card[open] > summary {
 .upload-report details summary {
   cursor: pointer;
 }
+.mode-cards.three {
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+}

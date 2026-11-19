@@ -1,6 +1,13 @@
-import { STUDY_NOTE_SYSTEM_PROMPT, buildStudyNoteInstruction, cleanStudyNote } from "../../ai/prompts";
+import {
+  MATERIAL_NOTE_SYSTEM_PROMPT,
+  STUDY_NOTE_SYSTEM_PROMPT,
+  buildMaterialNoteInstruction,
+  buildStudyNoteInstruction,
+  cleanStudyNote,
+  splitNoteTitle,
+} from "../../ai/prompts";
 import { getSettings } from "../../settings";
-import type { StudyNoteParams } from "../types";
+import type { MaterialNoteParams, StudyNoteParams } from "../types";
 import { AiResponseError, FALLBACK_BETA, getClient } from "./client";
 import { MAX_REQUEST_BYTES, estimateRequestBytes, materialsToContent } from "./materials";
 
@@ -34,4 +41,36 @@ export async function createStudyNote(params: StudyNoteParams): Promise<{ conten
   const content = cleanStudyNote(text);
   if (!content) throw new AiResponseError("Die KI hat keinen Lernzettel geliefert. Bitte erneut versuchen.");
   return { content, model: message.model };
+}
+
+/** Schreibt einen Lernzettel direkt aus ausgewähltem Material. */
+export async function createMaterialNote(
+  params: MaterialNoteParams,
+): Promise<{ title: string | null; content: string; model: string }> {
+  const { materials, signal, onText } = params;
+  if (materials.length === 0) throw new AiResponseError("Bitte mindestens ein Material auswählen.");
+  if (estimateRequestBytes(materials) > MAX_REQUEST_BYTES) {
+    throw new AiResponseError("Die ausgewählten Materialien sind zusammen zu groß (max. ca. 30 MB). Bitte weniger auswählen.");
+  }
+  const client = getClient();
+  const blocks = await materialsToContent(materials);
+  const stream = client.beta.messages.stream(
+    {
+      model: getSettings().generationModel,
+      max_tokens: 20000,
+      betas: [FALLBACK_BETA],
+      fallbacks: "default",
+      system: MATERIAL_NOTE_SYSTEM_PROMPT,
+      output_config: { effort: "medium" },
+      messages: [{ role: "user", content: [...blocks, { type: "text", text: buildMaterialNoteInstruction(params) }] }],
+    },
+    { signal },
+  );
+  stream.on("text", (_delta, snapshot) => onText?.(snapshot));
+  const message = await stream.finalMessage();
+  if (message.stop_reason === "refusal") throw new AiResponseError("Die KI hat die Anfrage abgelehnt.");
+  const { title, body } = splitNoteTitle(message.content.map((b) => (b.type === "text" ? b.text : "")).join(""));
+  const content = cleanStudyNote(body);
+  if (!content) throw new AiResponseError("Die KI hat keinen Lernzettel geliefert. Bitte erneut versuchen.");
+  return { title, content, model: message.model };
 }

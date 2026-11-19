@@ -52,7 +52,7 @@ export default function MaterialUpload({
               : "Dateien oder Ordner hierher ziehen oder tippen zum Auswählen"}
           </strong>
           <span className="muted small">
-            {hint ?? "PDF, Fotos/Bilder, Excel (.xlsx), Text · Word/PowerPoint bitte als PDF exportieren"}
+            {hint ?? "PDF, Fotos/Bilder, Excel, Word, Text · PowerPoint bitte als PDF exportieren"}
           </span>
         </div>
       </FileDrop>

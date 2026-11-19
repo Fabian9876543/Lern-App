@@ -1,4 +1,4 @@
-import type { Difficulty, GenerationSettings, Question, QuestionType } from "../types";
+import type { Difficulty, GenerationSettings, NoteLength, Question, QuestionType } from "../types";
 
 export const TYPE_LABELS: Record<QuestionType, string> = {
   single_choice: "Single Choice",
@@ -349,4 +349,55 @@ export function splitTranscript(text: string, count: number): string[] {
     if (k >= 0 && k < count) out[k] = text.slice(m.index! + m[0].length, end).trim();
   });
   return out;
+}
+
+// ---------- Lernzettel aus Material ----------
+
+export const NOTE_LENGTH_LABELS: Record<NoteLength, { label: string; hint: string }> = {
+  kurz: { label: "Spickzettel", hint: "ca. eine Seite, nur das Wichtigste in Stichpunkten" },
+  normal: { label: "Normal", hint: "Wichtigstes, Beispiele, typische Fehler, Selbstcheck" },
+  ausfuehrlich: { label: "Ausführlich", hint: "mit mehreren vorgerechneten Beispielen pro Thema" },
+};
+
+export const MATERIAL_NOTE_SYSTEM_PROMPT = `Du bist ein erfahrener Tutor und schreibst aus dem Lernmaterial eines Lernenden einen Lernzettel. Der Lernende lernt damit für eine Prüfung und soll danach typische Aufgaben selbst lösen können.
+
+Aufbau (Markdown):
+- Erste Zeile: „# “ und ein kurzer, treffender Titel (z. B. „Abschreibungen“ oder „Kapitel 4: Bilanzanalyse“).
+- ## Überblick – worum es geht, 2–4 Sätze.
+- Danach ein Abschnitt (##) pro Thema des Stoffs, in der Reihenfolge des Materials: das Wichtigste (Definitionen, Regeln, Formeln), wo es passt ein kurzes Vorgehen für typische Aufgaben und ein vorgerechnetes Beispiel. Nenne bei wichtigen Punkten die Fundstelle in Klammern (z. B. „Skript S. 14“, „Blatt 3, Aufgabe 2“).
+- ## Typische Fehler – häufige Fehler und Verwechslungen.
+- ## Selbstcheck – kurze Fragen zum Selbsttest, nummeriert.
+- ## Lösungen zum Selbstcheck – kurze Antworten, gleich nummeriert.
+
+Regeln:
+- Halte dich an das Material: seine Begriffe, Bezeichnungen und Schreibweisen. Ergänze aus deinem Fachwissen nur, wo das Material lückenhaft ist, und kennzeichne das mit „(ergänzt)“.
+- Enthält das Material Aufgaben mit Lösungen, nutze sie als Beispiele und zeige das Lösungsvorgehen.
+- Schreib verständlich und direkt an den Lernenden („du“), mit kurzen Absätzen, Aufzählungen und Hervorhebungen. Keine Einleitung wie „Hier ist dein Lernzettel“, kein Schlusswort.
+- Formeln in LaTeX mit $...$ (inline) und $$...$$ (abgesetzt). Tabellen und T-Konten als Markdown-Tabelle. Keine Bilder.
+- Sprache: die Sprache des Materials.
+- Prüfe alle Rechnungen, Beispiele und Lösungen sorgfältig.`;
+
+export function buildMaterialNoteInstruction(params: { subjectName: string; focus: string; length: NoteLength }): string {
+  const lengthRule: Record<NoteLength, string> = {
+    kurz: "Umfang: ein Spickzettel – höchstens etwa eine Seite (300–500 Wörter), knappe Stichpunkte, nur das Prüfungsrelevante, Beispiele höchstens in einer Zeile, Selbstcheck mit 3 Fragen.",
+    normal: "Umfang: etwa 800 bis 1500 Wörter, pro Thema ein kurzes Beispiel, Selbstcheck mit 3 bis 5 Fragen.",
+    ausfuehrlich:
+      "Umfang: ausführlich, bis etwa 3000 Wörter, pro Thema mehrere vollständig vorgerechnete Beispiele vom einfachen zum prüfungsnahen, Selbstcheck mit 5 bis 8 Fragen.",
+  };
+  const focus = params.focus.trim();
+  return [
+    `Fach: „${params.subjectName}“`,
+    focus
+      ? `Schwerpunkt: ${focus}. Schreibe den Lernzettel nur dazu; anderes Material nutzt du nur, soweit es dafür nötig ist.`
+      : "Fasse den gesamten Stoff des Materials zusammen.",
+    lengthRule[params.length],
+  ].join("\n\n");
+}
+
+/** Trennt die Titelzeile („# …“) vom Lernzettel. */
+export function splitNoteTitle(text: string): { title: string | null; body: string } {
+  const cleaned = text.trim().replace(/^```(?:markdown|md)?\s*\n([\s\S]*?)\n```$/, "$1").trim();
+  const m = /^#\s+(.+)\n?/.exec(cleaned);
+  if (!m) return { title: null, body: cleaned };
+  return { title: m[1].replace(/[*_`#]/g, "").trim().slice(0, 100) || null, body: cleaned.slice(m[0].length).trim() };
 }

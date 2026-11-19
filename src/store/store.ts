@@ -261,8 +261,15 @@ export const repo = {
 
   /** Speichert einen Lernzettel; ein älterer Zettel zum selben Thema wird ersetzt. */
   saveNote(n: StudyNote) {
-    removeLocal("notes", state.notes.filter((x) => x.planId === n.planId && x.topicId === n.topicId && x.id !== n.id).map((x) => x.id));
+    // Zu einem Lernplan-Thema gibt es höchstens einen Lernzettel.
+    if (n.planId && n.topicId) {
+      removeLocal("notes", state.notes.filter((x) => x.planId === n.planId && x.topicId === n.topicId && x.id !== n.id).map((x) => x.id));
+    }
     upsert("notes", n);
+  },
+  updateNote(id: string, patch: Partial<StudyNote>) {
+    const n = find("notes", id);
+    if (n) upsert("notes", { ...n, ...patch });
   },
   deleteNote(id: string) {
     removeLocal("notes", [id]);
