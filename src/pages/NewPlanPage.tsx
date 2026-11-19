@@ -96,6 +96,8 @@ export default function NewPlanPage({ subjectId }: { subjectId: string }) {
         <div className="spinner" />
         <h2>
           {progress.phase === "preparing" && (noMaterial ? "Wird vorbereitet …" : "Material wird vorbereitet …")}
+          {progress.phase === "transcribing" &&
+            `Claude schreibt eingescannte Seiten ab … ${progress.pagesDone ?? 0} von ${progress.pagesTotal ?? "?"}`}
           {progress.phase === "analyzing" &&
             (source === "manual"
               ? "Claude schätzt deine Themen ein …"
@@ -105,6 +107,12 @@ export default function NewPlanPage({ subjectId }: { subjectId: string }) {
           {progress.phase === "writing" &&
             (progress.questionsSoFar > 0 ? `${progress.questionsSoFar} Themen gefunden …` : "Themenliste wird geschrieben …")}
         </h2>
+        {progress.phase === "transcribing" && (
+          <p className="small">
+            Das sind mehr Fotos bzw. eingescannte Seiten, als Claude auf einmal ansehen kann. Sie werden deshalb einmal
+            abgeschrieben und gespeichert – beim nächsten Mal geht es ohne diesen Schritt.
+          </p>
+        )}
         <p className="muted">Danach kannst du die Themen prüfen und anpassen.</p>
         <button className="btn btn-ghost" onClick={() => abortRef.current?.abort()}>
           Abbrechen

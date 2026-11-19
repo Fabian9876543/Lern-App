@@ -148,10 +148,18 @@ export default function NewTestPage({ subjectId }: { subjectId: string }) {
         <div className="spinner" />
         <h2>
           {progress.phase === "preparing" && "Material wird vorbereitet …"}
+          {progress.phase === "transcribing" &&
+            `Claude schreibt eingescannte Seiten ab … ${progress.pagesDone ?? 0} von ${progress.pagesTotal ?? "?"}`}
           {progress.phase === "analyzing" && "Claude liest dein Material …"}
           {progress.phase === "writing" &&
             (progress.questionsSoFar > 0 ? `${progress.questionsSoFar} Fragen erstellt …` : "Fragen werden geschrieben …")}
         </h2>
+        {progress.phase === "transcribing" && (
+          <p className="small">
+            Das sind mehr Fotos bzw. eingescannte Seiten, als Claude auf einmal ansehen kann. Sie werden deshalb einmal
+            abgeschrieben und gespeichert – beim nächsten Mal geht es ohne diesen Schritt.
+          </p>
+        )}
         <p className="muted">
           Das kann je nach Umfang ein bis mehrere Minuten dauern. Lass diese Seite geöffnet.
         </p>

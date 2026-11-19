@@ -17,17 +17,28 @@ import {
   cleanStudyNote,
   generationSystemPrompt,
   gradingUserText,
+  splitTranscript,
+  transcribePrompt,
 } from "../../ai/prompts";
 import type { TopicAnalysis } from "../../ai/schemas";
 import { ROLE_LABELS } from "../../lib/files";
 import { verdictFromScore } from "../../lib/grading";
 import { newId } from "../../lib/ids";
 import { closePdf, openPdf, pageText, renderPage } from "../../lib/pdf";
+import { assembleTranscript, chooseForTranscription, inBatches, type Segment } from "../../lib/transcribe";
 import { TIERS, getSettings } from "../../settings";
 import type { AnswerResponse, Material, Question, Test } from "../../types";
 import { formatLongDate } from "../../lib/planner";
 import type { MaterialRole } from "../../types";
-import type { AiGrade, AiStatus, GenerateParams, MaterialNameParams, StudyNoteParams, TopicAnalysisParams } from "../types";
+import type {
+  AiGrade,
+  AiStatus,
+  GenerateParams,
+  GenerationProgress,
+  MaterialNameParams,
+  StudyNoteParams,
+  TopicAnalysisParams,
+} from "../types";
 import { artifactBackend } from "./storage";
 import { isSampleError, useCapability, type SampleFn } from "./claude";
 
@@ -85,43 +96,142 @@ interface PreparedMaterials {
   images: Blob[];
 }
 
-async function prepareMaterials(materials: Material[]): Promise<PreparedMaterials> {
-  const parts: string[] = [];
-  const images: Blob[] = [];
+/** Höchstens so viele Bilder pro Abschreib-Anfrage – kleinere Portionen halten die Antworten vollständig. */
+const TRANSCRIBE_BATCH = 6;
 
-  for (const [index, m] of materials.entries()) {
-    const label = `Material ${index + 1}: „${m.name}“ – Rolle: ${ROLE_LABELS[m.role]}`;
-    if (m.kind === "text") {
-      const text = m.text ?? (await (await artifactBackend.loadMaterialBlob(m))?.text()) ?? "";
-      parts.push(`<material titel="${label}">\n${text}\n</material>`);
-      continue;
+interface PrepareOptions {
+  signal?: AbortSignal;
+  onProgress?: (p: GenerationProgress) => void;
+}
+
+interface TranscribeOptions extends PrepareOptions {
+  batchSize: number;
+  onPages: (n: number) => void;
+}
+
+/** Zerlegt ein Material in Text- und Bildabschnitte (abgeschriebener Text ersetzt die Bilder). */
+async function segmentsOf(m: Material): Promise<Segment[]> {
+  const stored = m.kind === "text" ? null : await loadTranscript(m);
+  if (stored) return [{ kind: "text", text: stored }];
+  if (m.kind === "text") {
+    const text = m.text ?? (await (await artifactBackend.loadMaterialBlob(m))?.text()) ?? "";
+    return [{ kind: "text", text }];
+  }
+  const blob = await artifactBackend.loadMaterialBlob(m);
+  if (!blob) throw new AiResponseError(`„${m.name}“ konnte nicht geladen werden.`);
+  if (m.kind === "image") return [{ kind: "image", image: blob }];
+  // PDF: Text auslesen, eingescannte Seiten als Bild.
+  let doc;
+  try {
+    doc = await openPdf(blob);
+  } catch {
+    throw new AiResponseError(`Die PDF „${m.name}“ konnte nicht gelesen werden.`);
+  }
+  const segments: Segment[] = [];
+  for (let p = 1; p <= doc.numPages; p++) {
+    const text = await pageText(doc, p);
+    if (text.replace(/\s/g, "").length >= SCANNED_PAGE_TEXT_LIMIT) segments.push({ kind: "text", text, page: p });
+    else segments.push({ kind: "image", image: await renderPage(doc, p), page: p });
+  }
+  await closePdf(doc);
+  return segments;
+}
+
+async function loadTranscript(m: Material): Promise<string | null> {
+  if (m.transcript !== undefined) return m.transcript;
+  if (!m.transcriptAssetId) return null;
+  const blob = await artifactBackend.loadMaterialBlob({ ...m, kind: "text", assetId: m.transcriptAssetId, text: undefined });
+  return blob ? blob.text() : null;
+}
+
+/** Lässt Claude die Bilder eines Materials abschreiben – in Portionen, bei abgeschnittener Antwort kleiner. */
+async function transcribeImages(
+  sample: SampleFn,
+  m: Material,
+  images: { image: Blob; page?: number }[],
+  opts: TranscribeOptions,
+): Promise<string[]> {
+  const out: string[] = [];
+  const run = async (batch: { image: Blob; page?: number }[]): Promise<string[]> => {
+    const result = await sample(transcribePrompt(m.name, batch.map((b) => b.page)), {
+      modelTier: "default",
+      images: batch.map((b) => b.image),
+      signal: opts.signal,
+    });
+    if (result.truncated && batch.length > 1) {
+      const half = Math.ceil(batch.length / 2);
+      return [...(await run(batch.slice(0, half))), ...(await run(batch.slice(half)))];
     }
-    const blob = await artifactBackend.loadMaterialBlob(m);
-    if (!blob) throw new AiResponseError(`„${m.name}“ konnte nicht geladen werden.`);
-    if (m.kind === "image") {
-      images.push(blob);
-      parts.push(`<material titel="${label}">\n[Bild ${images.length} – siehe beigefügte Bilder]\n</material>`);
-      continue;
+    opts.onPages(batch.length);
+    return splitTranscript(result.text, batch.length);
+  };
+  for (const batch of inBatches(images, opts.batchSize)) out.push(...(await run(batch)));
+  return out;
+}
+
+/**
+ * Bereitet die Materialien für eine Anfrage auf. Passen die Bilder nicht in
+ * eine Anfrage, werden die bildreichsten Materialien vorher abgeschrieben und
+ * der Text am Material gespeichert – danach gehen beliebig viele Seiten.
+ */
+async function prepareMaterials(sample: SampleFn, materials: Material[], opts: PrepareOptions = {}): Promise<PreparedMaterials> {
+  // Nacheinander – viele PDFs gleichzeitig zu öffnen kostet unnötig Speicher.
+  const all: { m: Material; segments: Segment[] }[] = [];
+  for (const m of materials) all.push({ m, segments: await segmentsOf(m) });
+  const imageCount = (segs: Segment[]) => segs.filter((s) => s.kind === "image").length;
+  const total = all.reduce((sum, x) => sum + imageCount(x.segments), 0);
+
+  if (total > 0) {
+    const limits = await sample.limits().catch(() => null);
+    const maxImages = limits?.images?.maxCount ?? 0;
+    if (maxImages === 0) {
+      throw new AiResponseError(
+        "In dieser Ansicht können keine Bilder an Claude geschickt werden. Nutze PDFs mit Text oder Textdateien.",
+      );
     }
-    // PDF: Text auslesen, eingescannte Seiten als Bild.
-    let doc;
-    try {
-      doc = await openPdf(blob);
-    } catch {
-      throw new AiResponseError(`Die PDF „${m.name}“ konnte nicht gelesen werden.`);
-    }
-    const pages: string[] = [];
-    for (let p = 1; p <= doc.numPages; p++) {
-      const text = await pageText(doc, p);
-      if (text.replace(/\s/g, "").length >= SCANNED_PAGE_TEXT_LIMIT) {
-        pages.push(`--- Seite ${p} ---\n${text}`);
-      } else {
-        images.push(await renderPage(doc, p));
-        pages.push(`--- Seite ${p} ---\n[eingescannte Seite: Bild ${images.length} – siehe beigefügte Bilder]`);
+    const chosen = new Set(chooseForTranscription(all.map((x) => ({ id: x.m.id, images: imageCount(x.segments) })), maxImages));
+    if (chosen.size) {
+      const { repo } = await import("../../store/store");
+      const pagesTotal = all.filter((x) => chosen.has(x.m.id)).reduce((sum, x) => sum + imageCount(x.segments), 0);
+      let pagesDone = 0;
+      opts.onProgress?.({ phase: "transcribing", questionsSoFar: 0, pagesDone, pagesTotal });
+      for (const x of all) {
+        if (!chosen.has(x.m.id)) continue;
+        const images = x.segments.filter((s): s is Extract<Segment, { kind: "image" }> => s.kind === "image");
+        const texts = await transcribeImages(sample, x.m, images, {
+          ...opts,
+          batchSize: Math.min(TRANSCRIBE_BATCH, maxImages),
+          onPages: (n) => {
+            pagesDone += n;
+            opts.onProgress?.({ phase: "transcribing", questionsSoFar: 0, pagesDone, pagesTotal });
+          },
+        });
+        const transcript = assembleTranscript(x.segments, texts);
+        await repo.saveTranscript(x.m.id, transcript);
+        x.segments = [{ kind: "text", text: transcript }];
       }
     }
-    await closePdf(doc);
-    parts.push(`<material titel="${label}">\n${pages.join("\n\n")}\n</material>`);
+  }
+
+  const parts: string[] = [];
+  const images: Blob[] = [];
+  for (const [index, { m, segments }] of all.entries()) {
+    const label = `Material ${index + 1}: „${m.name}“ – Rolle: ${ROLE_LABELS[m.role]}`;
+    const body = segments
+      .map((s) => {
+        let content: string;
+        if (s.kind === "text") content = s.text;
+        else {
+          images.push(s.image);
+          content =
+            s.page !== undefined
+              ? `[eingescannte Seite: Bild ${images.length} – siehe beigefügte Bilder]`
+              : `[Bild ${images.length} – siehe beigefügte Bilder]`;
+        }
+        return s.page !== undefined ? `--- Seite ${s.page} ---\n${content}` : content;
+      })
+      .join("\n\n");
+    parts.push(`<material titel="${label}">\n${body}\n</material>`);
   }
   return { text: parts.join("\n\n"), images };
 }
@@ -138,7 +248,7 @@ export async function generateTest(params: GenerateParams): Promise<Test> {
   const tier = getSettings().generationTier;
 
   onProgress?.({ phase: "preparing", questionsSoFar: 0 });
-  const prepared = await prepareMaterials(materials);
+  const prepared = await prepareMaterials(sample, materials, { signal, onProgress });
   const materialPart = hasMaterials
     ? `<materialien>
 ${prepared.text}
@@ -220,7 +330,7 @@ export async function analyzeTopics(params: TopicAnalysisParams): Promise<TopicA
   const { materials, signal, onProgress } = params;
   const sample = await requireSample();
   onProgress?.({ phase: "preparing", questionsSoFar: 0 });
-  const prepared = await prepareMaterials(materials);
+  const prepared = await prepareMaterials(sample, materials, { signal, onProgress });
   const instruction = buildTopicInstruction({
     subjectName: params.subjectName,
     examDateLabel: formatLongDate(params.examDate),
@@ -255,7 +365,7 @@ export async function createStudyNote(params: StudyNoteParams): Promise<{ conten
   const { materials, signal, onText } = params;
   const sample = await requireSample();
   const tier = getSettings().generationTier;
-  const prepared = await prepareMaterials(materials);
+  const prepared = await prepareMaterials(sample, materials, { signal });
   const materialPart = materials.length
     ? `<materialien>\n${prepared.text}\n</materialien>\n${
         prepared.images.length

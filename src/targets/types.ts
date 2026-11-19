@@ -3,11 +3,14 @@ import type { Backend } from "../store/types";
 import type { TopicAnalysis } from "../ai/schemas";
 import type { AnswerResponse, GenerationSettings, Material, MaterialRole, Question, Test, Verdict } from "../types";
 
-export type GenerationPhase = "preparing" | "analyzing" | "writing";
+export type GenerationPhase = "preparing" | "transcribing" | "analyzing" | "writing";
 
 export interface GenerationProgress {
   phase: GenerationPhase;
   questionsSoFar: number;
+  /** Beim Abschreiben eingescannter Seiten: erledigt / insgesamt. */
+  pagesDone?: number;
+  pagesTotal?: number;
 }
 
 export interface GenerateParams {

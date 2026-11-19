@@ -23,7 +23,10 @@ interface Backup {
 export async function exportBackup(): Promise<Blob> {
   const { subjects, materials, tests, attempts, plans, notes } = getState();
   const backupMaterials: BackupMaterial[] = [];
-  for (const m of materials) {
+  for (const material of materials) {
+    // Abgeschriebenen Text einbetten, damit das Backup ohne Artifact-Dateien auskommt
+    const transcript = await repo.loadTranscript(material).catch(() => null);
+    const { transcriptAssetId: _t, ...m } = { ...material, transcript: transcript ?? undefined };
     const { blob: _blob, assetId: _assetId, ...rest } = m;
     if (m.kind === "text" && m.text !== undefined) {
       backupMaterials.push(rest);
@@ -73,9 +76,10 @@ export async function importBackup(file: File): Promise<{ subjects: number; test
   }
   data.subjects.forEach((s) => repo.addSubject(s));
   for (const m of data.materials ?? []) {
-    const { blobDataUrl, text, ...meta } = m;
+    const { blobDataUrl, text, transcript, ...meta } = m;
     const blob = blobDataUrl ? await (await fetch(blobDataUrl)).blob() : undefined;
     await repo.addMaterial(meta, { blob, text });
+    if (transcript) await repo.saveTranscript(meta.id, transcript);
   }
   (data.tests ?? []).forEach((t) => repo.addTest(t));
   for (const a of data.attempts ?? []) {

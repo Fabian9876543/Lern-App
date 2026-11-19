@@ -58,6 +58,7 @@ export default function MaterialRow({
         )}
         <span className="muted small">
           {naming ? " · wird benannt …" : ` · ${formatBytes(m.size)}`}
+          {(m.transcript !== undefined || m.transcriptAssetId) && " · abgeschrieben"}
           {extra}
         </span>
       </div>

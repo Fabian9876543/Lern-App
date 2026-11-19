@@ -156,6 +156,12 @@ function find<T extends TableName>(table: T, id: string): Tables[T] | undefined 
   return (state[table] as Tables[T][]).find((r) => r.id === id);
 }
 
+/** Löscht die Dateien eines Materials (Inhalt und ggf. abgeschriebenen Text). */
+function deleteContent(m: Material) {
+  void backend.deleteMaterialContent(m).catch(() => {});
+  if (m.transcriptAssetId) void backend.deleteMaterialContent({ ...m, assetId: m.transcriptAssetId }).catch(() => {});
+}
+
 export const repo = {
   getSubject: (id: string) => find("subjects", id),
   getTest: (id: string) => find("tests", id),
@@ -172,7 +178,7 @@ export const repo = {
   },
   deleteSubject(id: string) {
     const materials = state.materials.filter((m) => m.subjectId === id);
-    materials.forEach((m) => void backend.deleteMaterialContent(m).catch(() => {}));
+    materials.forEach(deleteContent);
     removeLocal("attempts", state.attempts.filter((a) => a.subjectId === id).map((a) => a.id));
     removeLocal("notes", state.notes.filter((n) => n.subjectId === id).map((n) => n.id));
     removeLocal("plans", state.plans.filter((p) => p.subjectId === id).map((p) => p.id));
@@ -192,11 +198,26 @@ export const repo = {
   deleteMaterial(id: string) {
     const m = find("materials", id);
     if (!m) return;
-    void backend.deleteMaterialContent(m).catch(() => {});
+    deleteContent(m);
     removeLocal("materials", [id]);
   },
   loadMaterialBlob(m: Material): Promise<Blob | null> {
     return backend.loadMaterialBlob(m);
+  },
+  /** Speichert den abgeschriebenen Text eines Materials (lange Texte als Datei). */
+  async saveTranscript(id: string, text: string) {
+    const stored = await backend.storeMaterialContent({ text, mimeType: "text/plain" });
+    const m = find("materials", id);
+    if (!m) return;
+    if (m.transcriptAssetId) void backend.deleteMaterialContent({ ...m, assetId: m.transcriptAssetId }).catch(() => {});
+    upsert("materials", { ...m, transcript: stored.text, transcriptAssetId: stored.assetId });
+  },
+  /** Abgeschriebener Text eines Materials oder null. */
+  async loadTranscript(m: Material): Promise<string | null> {
+    if (m.transcript !== undefined) return m.transcript;
+    if (!m.transcriptAssetId) return null;
+    const blob = await backend.loadMaterialBlob({ ...m, kind: "text", assetId: m.transcriptAssetId, text: undefined, blob: undefined });
+    return blob ? blob.text() : null;
   },
 
   addTest(t: Test) {
@@ -248,7 +269,7 @@ export const repo = {
   },
 
   clearAll() {
-    state.materials.forEach((m) => void backend.deleteMaterialContent(m).catch(() => {}));
+    state.materials.forEach(deleteContent);
     for (const table of TABLES) removeLocal(table, (state[table] as { id: string }[]).map((r) => r.id));
   },
 

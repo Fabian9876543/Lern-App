@@ -14,7 +14,7 @@ Eine persönliche Lern-App: Du lädst deine Lernmaterialien hoch, und die App ma
 | KI | über dein Claude-Abo (Pro/Max) – keine API-Kosten | über einen Claude-API-Schlüssel (Abrechnung nach Verbrauch) |
 | Läuft | als Artifact in claude.ai (Web, Desktop, App) | eigenständig im Browser, z. B. über GitHub Pages |
 | Daten | privat im Artifact gespeichert, auf allen Geräten gleich (Gäste: nur im eigenen Browser) | lokal im Browser (IndexedDB) |
-| PDFs | Text wird im Browser ausgelesen; eingescannte Seiten und Fotos gehen als Bild an Claude (verkleinert auf ca. 1,2 MP, begrenzte Anzahl pro Test) | Claude liest PDFs direkt (bis ca. 30 MB pro Test) |
+| PDFs | Text wird im Browser ausgelesen; eingescannte Seiten und Fotos gehen als Bild an Claude (verkleinert auf ca. 1,2 MP). Sind es mehr, als claude.ai pro Anfrage erlaubt, schreibt Claude sie einmal ab – der Text wird gespeichert und danach verwendet | Claude liest PDFs direkt (bis ca. 30 MB pro Test) |
 | Modellwahl | Stufen: Am stärksten / Standard / Schnell | konkrete Modelle (Opus, Sonnet, Haiku) |
 
 ### Die claude.ai-Version teilen
@@ -62,6 +62,10 @@ Beide Varianten entstehen aus demselben Code (`src/targets/artifact` bzw. `src/t
 - Auswahlfragen, Zahlen und exakte Kurzantworten wertet die App selbst aus; offene Antworten bewertet die KI anhand
   der Musterlösung (mit Teilpunkten). Du kannst jede Bewertung selbst korrigieren.
 - Handschriftliche Lösung? Einfach ein Foto an die Antwort hängen – die KI bewertet das Foto.
+- **Viele eingescannte Seiten:** claude.ai erlaubt pro Anfrage nur eine begrenzte Zahl an Bildern. Wird sie
+  überschritten, lässt die App die bildreichsten Materialien in kleinen Portionen abschreiben (mit Formeln, Tabellen
+  und kurzen Bildbeschreibungen) und speichert den Text am Material – jede Seite wird nur einmal abgeschrieben. Die
+  Abschrift lässt sich in der Vorschau ansehen; die Vorschau zeigt PDFs jetzt komplett („Weitere Seiten anzeigen“).
 - Formeln werden mit LaTeX/KaTeX schön dargestellt
 - Ergebnisse mit Auswertung nach Thema, Verlauf pro Test und **„Fehler wiederholen“**
 - „Neue Variante“: zum selben Material einen neuen Test mit anderen Aufgaben erzeugen

@@ -98,9 +98,17 @@ export default function PlanPage({ planId }: { planId: string }) {
         <div className="spinner" />
         <h2>
           {p.phase === "preparing" && (planHasMaterials(plan) ? "Material wird vorbereitet …" : `${generating.label} wird vorbereitet …`)}
+          {p.phase === "transcribing" &&
+            `Claude schreibt eingescannte Seiten ab … ${p.pagesDone ?? 0} von ${p.pagesTotal ?? "?"}`}
           {p.phase === "analyzing" && `${generating.label} wird erstellt …`}
           {p.phase === "writing" && (p.questionsSoFar > 0 ? `${p.questionsSoFar} Fragen erstellt …` : "Fragen werden geschrieben …")}
         </h2>
+        {p.phase === "transcribing" && (
+          <p className="small">
+            Das sind mehr Fotos bzw. eingescannte Seiten, als Claude auf einmal ansehen kann. Sie werden deshalb einmal
+            abgeschrieben und gespeichert – beim nächsten Mal geht es ohne diesen Schritt.
+          </p>
+        )}
         <p className="muted">Das kann ein bis zwei Minuten dauern.</p>
         <button className="btn btn-ghost" onClick={() => abortRef.current?.abort()}>
           Abbrechen

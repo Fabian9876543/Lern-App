@@ -312,3 +312,41 @@ export function cleanStudyNote(text: string): string {
   t = t.replace(/^#\s+[^\n]*\n+/, "");
   return t.trim();
 }
+
+// ---------- Eingescannte Seiten abschreiben ----------
+
+/**
+ * Bilder (Fotos, eingescannte PDF-Seiten) abschreiben lassen – damit auch mehr
+ * Seiten verwendet werden können, als pro Anfrage als Bild an Claude gehen.
+ */
+export function transcribePrompt(materialName: string, pages: (number | undefined)[]): string {
+  const known = pages.filter((p): p is number => p !== undefined);
+  const which = known.length === pages.length && known.length ? ` (Seite ${known.join(", ")} des Dokuments)` : "";
+  return `Du schreibst Lernmaterial ab, damit eine Lern-App daraus Übungsaufgaben und Lernzettel erstellen kann.
+Material: „${materialName}“. Beigefügt ${pages.length === 1 ? "ist 1 Bild" : `sind ${pages.length} Bilder`}${which}.
+
+Schreibe den Inhalt jedes Bildes vollständig und genau ab:
+- Beginne jedes Bild mit einer eigenen Zeile „=== Bild k ===“ (k = 1 bis ${pages.length}, in der Reihenfolge der Bilder).
+- Übernimm den Text wörtlich – mit Aufgabennummern, Punkten, Randnotizen und Handschrift. Unleserliches markierst du als [unleserlich].
+- Formeln in LaTeX mit $...$ bzw. $$...$$, Tabellen und T-Konten als Markdown-Tabellen.
+- Abbildungen, Diagramme und Skizzen beschreibst du kurz in eckigen Klammern, mit allen Zahlen und Beschriftungen, z. B. [Abbildung: Angebots- und Nachfragekurve, Schnittpunkt bei p = 4, x = 120].
+- Ist ein Bild leer, schreibe [leere Seite].
+- Keine Einleitung, keine Zusammenfassung, keine eigenen Lösungen oder Kommentare.`;
+}
+
+/** Teilt Claudes Abschrift an den Markierungen „=== Bild k ===“ auf; fehlende Bilder bleiben leer. */
+export function splitTranscript(text: string, count: number): string[] {
+  const out = Array.from({ length: count }, () => "");
+  const marker = /^[ \t]*={2,}\s*Bild\s+(\d+)\s*={2,}[ \t]*$/gim;
+  const hits = [...text.matchAll(marker)];
+  if (hits.length === 0) {
+    out[0] = text.trim();
+    return out;
+  }
+  hits.forEach((m, i) => {
+    const k = Number(m[1]) - 1;
+    const end = i + 1 < hits.length ? hits[i + 1].index! : text.length;
+    if (k >= 0 && k < count) out[k] = text.slice(m.index! + m[0].length, end).trim();
+  });
+  return out;
+}

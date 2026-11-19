@@ -27,6 +27,13 @@ export interface Material {
   folder?: string;
   /** Dateiname beim Hochladen – bleibt auch nach dem Umbenennen, damit ein Ordner erneut hochgeladen werden kann. */
   fileName?: string;
+  /**
+   * Von Claude abgeschriebener Text eingescannter Seiten bzw. Fotos (einmal
+   * erstellt, danach statt der Bilder verwendet). Lange Texte liegen als Datei
+   * (`transcriptAssetId`).
+   */
+  transcript?: string;
+  transcriptAssetId?: string;
   size: number;
   createdAt: number;
 }
