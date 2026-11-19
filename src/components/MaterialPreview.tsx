@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
+import { isSpreadsheet } from "../lib/files";
 import { closePdf, openPdf, renderPage } from "../lib/pdf";
+import Markdown from "./Markdown";
 import { repo } from "../store/store";
 import type { Material } from "../types";
 import Modal from "./Modal";
@@ -56,7 +58,14 @@ export default function MaterialPreview({ material, onClose }: { material: Mater
     <Modal title={material.name} onClose={onClose}>
       {state.kind === "loading" && <p className="muted">Wird geladen …</p>}
       {state.kind === "error" && <p className="error-text">{state.text}</p>}
-      {state.kind === "text" && <pre className="text-preview">{state.text}</pre>}
+      {state.kind === "text" &&
+        (isSpreadsheet(material) ? (
+          <div className="sheet-preview">
+            <Markdown>{state.text}</Markdown>
+          </div>
+        ) : (
+          <pre className="text-preview">{state.text}</pre>
+        ))}
       {state.kind === "images" && (
         <div className="stack-sm">
           {state.urls.map((u, i) => (

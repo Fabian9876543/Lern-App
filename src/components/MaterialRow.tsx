@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { ROLE_LABELS, formatBytes } from "../lib/files";
+import { ROLE_LABELS, formatBytes, isSpreadsheet } from "../lib/files";
 import { useNamingIds } from "../lib/materialNaming";
 import { repo } from "../store/store";
 import type { Material, MaterialRole } from "../types";
@@ -47,7 +47,7 @@ export default function MaterialRow({
           aria-label={`${m.name} für diesen Test verwenden`}
         />
       )}
-      <span className="material-icon">{KIND_ICON[m.kind]}</span>
+      <span className="material-icon">{isSpreadsheet(m) ? "📊" : KIND_ICON[m.kind]}</span>
       <div className="material-name">
         {onPreview ? (
           <button className="link-btn" onClick={() => onPreview(m)} title={m.originalName ? `Ursprünglich: ${m.originalName}` : "Ansehen"}>

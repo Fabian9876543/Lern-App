@@ -8,10 +8,43 @@ export const ROLE_LABELS: Record<MaterialRole, string> = {
 };
 
 export const ACCEPTED_FILE_TYPES =
-  "application/pdf,image/*,text/plain,text/markdown,text/csv,.md,.txt,.csv,.tex";
+  "application/pdf,image/*,text/plain,text/markdown,text/csv,.md,.txt,.csv,.tex," +
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel.sheet.macroEnabled.12,.xlsx,.xlsm";
 
 const API_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
 const TEXT_EXTENSIONS = /\.(txt|md|markdown|csv|tex)$/i;
+const XLSX_EXTENSIONS = /\.(xlsx|xlsm)$/i;
+/** Formate, die wir nicht lesen, mit einem Tipp, wie es trotzdem geht. */
+const CONVERT_HINTS: [RegExp, string][] = [
+  [/\.(xls|ods|numbers)$/i, "Tabellen bitte als .xlsx speichern"],
+  [/\.(docx?|odt|pages|rtf)$/i, "Word-Dokumente bitte als PDF exportieren"],
+  [/\.(pptx?|odp|key)$/i, "Präsentationen bitte als PDF exportieren"],
+];
+
+/** Excel-Dateien werden beim Hochladen in Markdown-Tabellen umgewandelt und so gespeichert. */
+export const SPREADSHEET_MIME = "text/markdown";
+
+export function isSpreadsheet(m: { kind: MaterialKind; mimeType: string }): boolean {
+  return m.kind === "text" && m.mimeType === SPREADSHEET_MIME;
+}
+
+/** Ob die App diese Datei lesen kann (PDF, Bild, Text, Excel). */
+export function isSupportedFile(name: string, type: string): boolean {
+  return (
+    type === "application/pdf" ||
+    /\.pdf$/i.test(name) ||
+    type.startsWith("image/") ||
+    /\.(heic|heif|jpe?g|png|webp|gif)$/i.test(name) ||
+    type.startsWith("text/") ||
+    TEXT_EXTENSIONS.test(name) ||
+    XLSX_EXTENSIONS.test(name)
+  );
+}
+
+/** Kurzer Tipp für ein nicht unterstütztes Format, z. B. „Word-Dokumente bitte als PDF exportieren“. */
+export function conversionHint(name: string): string | null {
+  return CONVERT_HINTS.find(([re]) => re.test(name))?.[1] ?? null;
+}
 
 /** Die API akzeptiert Bilder bis ca. 5 MB; größere Bilder werden verkleinert. */
 const MAX_IMAGE_BYTES = 1_500_000;
@@ -28,32 +61,81 @@ export interface PreparedFile {
 
 export class UnsupportedFileError extends Error {}
 
-export function guessRole(fileName: string): MaterialRole {
-  const n = fileName.toLowerCase();
-  const hasSolution = /(lösung|loesung|losung|solution|musterl|lsg)/.test(n);
-  const hasTask = /(aufgabe|übung|uebung|blatt|exercise|klausur|exam|test)/.test(n);
+/** Rolle, die ein Name (Datei oder Ordner) nahelegt – oder null, wenn er nichts verrät. */
+function roleSignal(name: string): MaterialRole | null {
+  const n = name.toLowerCase();
   const combined = /(mit|inkl|und|with|and|\+)[\s_.-]*(lösung|loesung|losung|solution|musterl|lsg)/.test(n);
   if (combined) return "tasks_with_solutions";
-  if (hasSolution) return "solutions";
-  if (hasTask) return "tasks";
+  if (/(lösung|loesung|losung|solution|musterl|lsg)/.test(n)) return "solutions";
+  if (/(aufgabe|übung|uebung|blatt|exercise|klausur|exam|test)/.test(n)) return "tasks";
+  if (/(skript|script|folien|slides|vorlesung|lecture|mitschrift|notizen|zusammenfassung|buch|kapitel)/.test(n)) return "reference";
+  return null;
+}
+
+/**
+ * Schlägt die Rolle anhand des Dateinamens vor; verrät der nichts, zählt der
+ * nächstgelegene Ordner (z. B. „Lösungen/Scan 3.pdf“ → Lösungen).
+ */
+export function guessRole(fileName: string, folder?: string): MaterialRole {
+  const own = roleSignal(fileName);
+  if (own) return own;
+  const segments = (folder ?? "").split("/").filter(Boolean).reverse();
+  for (const segment of segments) {
+    const fromFolder = roleSignal(segment);
+    if (fromFolder) return fromFolder;
+  }
   return "reference";
+}
+
+/**
+ * Liest die Datei einmal komplett. So fallen Dateien sofort auf, die der Browser
+ * nicht lesen kann – etwa OneDrive- oder iCloud-Dateien, die nur online liegen –,
+ * statt später als leere Datei gespeichert zu sein.
+ */
+async function readableCopy(file: File, type: string): Promise<Blob> {
+  let bytes: ArrayBuffer;
+  try {
+    bytes = await file.arrayBuffer();
+  } catch {
+    throw new UnsupportedFileError(
+      `„${file.name}“ konnte nicht gelesen werden. Liegt die Datei nur in der Cloud (z. B. OneDrive oder iCloud)? Dann bitte zuerst auf das Gerät laden.`,
+    );
+  }
+  if (bytes.byteLength === 0) throw new UnsupportedFileError(`„${file.name}“ ist leer.`);
+  return new Blob([bytes], { type });
 }
 
 export async function prepareFile(file: File): Promise<PreparedFile> {
   const type = file.type;
   if (type === "application/pdf" || /\.pdf$/i.test(file.name)) {
-    return { name: file.name, kind: "pdf", mimeType: "application/pdf", blob: file, size: file.size };
+    const blob = await readableCopy(file, "application/pdf");
+    return { name: file.name, kind: "pdf", mimeType: "application/pdf", blob, size: blob.size };
   }
   if (type.startsWith("image/") || /\.(heic|heif)$/i.test(file.name)) {
+    await readableCopy(file, type);
     const blob = await normalizeImage(file);
     return { name: file.name, kind: "image", mimeType: blob.type, blob, size: blob.size };
+  }
+  if (XLSX_EXTENSIONS.test(file.name)) {
+    // Excel: alle Tabellenblätter als Markdown-Tabellen speichern (Leser wird erst bei Bedarf geladen).
+    const { xlsxToMarkdown, SpreadsheetError } = await import("./xlsx");
+    try {
+      const text = xlsxToMarkdown(new Uint8Array(await (await readableCopy(file, file.type)).arrayBuffer()), file.name);
+      return { name: file.name, kind: "text", mimeType: SPREADSHEET_MIME, text, size: text.length };
+    } catch (e) {
+      if (e instanceof SpreadsheetError) throw new UnsupportedFileError(e.message);
+      throw e;
+    }
   }
   if (type.startsWith("text/") || TEXT_EXTENSIONS.test(file.name)) {
     const text = await file.text();
     return { name: file.name, kind: "text", mimeType: "text/plain", text, size: text.length };
   }
+  const hint = conversionHint(file.name);
   throw new UnsupportedFileError(
-    `„${file.name}“ wird nicht unterstützt. Erlaubt sind PDF, Bilder und Textdateien (Word/PowerPoint bitte als PDF exportieren).`,
+    hint
+      ? `„${file.name}“ kann die App nicht lesen – ${hint}.`
+      : `„${file.name}“ wird nicht unterstützt. Erlaubt sind PDF, Bilder, Excel (.xlsx) und Textdateien.`,
   );
 }
 

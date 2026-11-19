@@ -1,5 +1,7 @@
 import { useRef, useState, type ReactNode } from "react";
+import { pickedFromDrop, pickedFromInput, type PickedFile } from "../lib/folders";
 
+/** Fläche zum Hineinziehen oder Antippen – nimmt Dateien und ganze Ordner (mit Unterordnern) an. */
 export default function FileDrop({
   accept,
   multiple = true,
@@ -9,7 +11,7 @@ export default function FileDrop({
 }: {
   accept: string;
   multiple?: boolean;
-  onFiles: (files: File[]) => void;
+  onFiles: (files: PickedFile[]) => void;
   children: ReactNode;
   label: string;
 }) {
@@ -32,8 +34,8 @@ export default function FileDrop({
       onDrop={(e) => {
         e.preventDefault();
         setDragging(false);
-        const files = Array.from(e.dataTransfer.files);
-        if (files.length) onFiles(files);
+        // Die Einträge müssen noch während des Ereignisses abgeholt werden.
+        void pickedFromDrop(e.dataTransfer).then((items) => items.length && onFiles(items));
       }}
     >
       <input
@@ -46,7 +48,7 @@ export default function FileDrop({
         onChange={(e) => {
           const files = Array.from(e.target.files ?? []);
           e.target.value = "";
-          if (files.length) onFiles(files);
+          if (files.length) onFiles(pickedFromInput(files));
         }}
       />
       {children}

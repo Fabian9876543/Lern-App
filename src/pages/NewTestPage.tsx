@@ -1,6 +1,7 @@
 import platform from "@platform-impl";
 import { useEffect, useRef, useState } from "react";
 import { DIFFICULTY_LABELS, TYPE_LABELS } from "../ai/prompts";
+import MaterialList, { type MaterialSelection } from "../components/MaterialList";
 import MaterialPreview from "../components/MaterialPreview";
 import MaterialRow from "../components/MaterialRow";
 import MaterialUpload from "../components/MaterialUpload";
@@ -90,6 +91,17 @@ export default function NewTestPage({ subjectId }: { subjectId: string }) {
   function setMode(mode: TestMode) {
     setSettings((s) => ({ ...s, mode }));
   }
+
+  const usedById = new Map(used.map((u) => [u.material.id, u]));
+  const materialSelection: MaterialSelection = {
+    isSelected: (id) => selected.has(id),
+    setMany: (ids, on) =>
+      setSelected((prev) => {
+        const next = new Set(prev);
+        ids.forEach((id) => (on ? next.add(id) : next.delete(id)));
+        return next;
+      }),
+  };
 
   function toggleMaterial(id: string) {
     const next = new Set(selected);
@@ -198,34 +210,41 @@ export default function NewTestPage({ subjectId }: { subjectId: string }) {
           onAdded={(ids) => setSelected((prev) => new Set([...prev, ...ids]))}
         />
         {fresh.length > 0 ? (
-          <ul className="material-list">
-            {fresh.map((m) => (
+          <MaterialList
+            materials={fresh}
+            selection={materialSelection}
+            row={(m) => (
               <MaterialRow
                 key={m.id}
                 material={m}
                 onPreview={setPreview}
                 selectable={{ checked: selected.has(m.id), onToggle: () => toggleMaterial(m.id) }}
               />
-            ))}
-          </ul>
+            )}
+          />
         ) : (
           <p className="muted small">Lade oben das Material für diesen Test hoch.</p>
         )}
         {used.length > 0 && (
           <details className="used-materials" open={used.some((u) => selected.has(u.material.id))}>
             <summary className="small">Material aus früheren Tests und Lernplänen wiederverwenden ({used.length})</summary>
-            <ul className="material-list">
-              {used.map(({ material, tests, plans }) => (
-                <MaterialRow
-                  key={material.id}
-                  material={material}
-                  onPreview={setPreview}
-                  actions={false}
-                  extra={<> · aus „{tests[0]?.title ?? plans[0].title}“</>}
-                  selectable={{ checked: selected.has(material.id), onToggle: () => toggleMaterial(material.id) }}
-                />
-              ))}
-            </ul>
+            <MaterialList
+              materials={used.map((u) => u.material)}
+              selection={materialSelection}
+              row={(material) => {
+                const u = usedById.get(material.id)!;
+                return (
+                  <MaterialRow
+                    key={material.id}
+                    material={material}
+                    onPreview={setPreview}
+                    actions={false}
+                    extra={<> · aus „{u.tests[0]?.title ?? u.plans[0].title}“</>}
+                    selectable={{ checked: selected.has(material.id), onToggle: () => toggleMaterial(material.id) }}
+                  />
+                );
+              }}
+            />
           </details>
         )}
         <p className="muted small">

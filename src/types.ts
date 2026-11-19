@@ -21,8 +21,10 @@ export interface Material {
   blob?: Blob;
   /** Verweis auf die gespeicherte Datei – nur in der claude.ai-Version. */
   assetId?: string;
-  /** Inhalt bei Text-Materialien. */
+  /** Inhalt bei Text-Materialien (bei Excel-Dateien die Tabellen als Markdown). */
   text?: string;
+  /** Ordnerpfad, wenn das Material als Teil eines Ordners hochgeladen wurde, z. B. „Analysis 1/Übungsblätter“. */
+  folder?: string;
   size: number;
   createdAt: number;
 }

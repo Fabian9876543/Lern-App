@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { confirmDialog, promptDialog } from "../components/Dialogs";
+import MaterialList from "../components/MaterialList";
 import MaterialPreview from "../components/MaterialPreview";
+import { formatFolder } from "../lib/folders";
 import MaterialRow from "../components/MaterialRow";
 import MaterialUpload from "../components/MaterialUpload";
 import { formatDate, summarize } from "../lib/attempts";
@@ -30,6 +32,14 @@ export default function SubjectPage({ subjectId }: { subjectId: string }) {
   const plans = store.plans.filter((p) => p.subjectId === subjectId).sort((a, b) => a.examDate.localeCompare(b.examDate));
   const { fresh, used } = splitMaterials(materials, tests, plans);
   const attempts = store.attempts.filter((a) => a.subjectId === subjectId);
+
+  async function deleteFolder(folder: string, items: Material[]) {
+    const ok = await confirmDialog(
+      `Den Ordner „${formatFolder(folder)}“ mit ${items.length === 1 ? "1 Datei" : `${items.length} Dateien`} löschen?`,
+      { title: "Ordner löschen", confirmLabel: "Löschen", danger: true },
+    );
+    if (ok) items.forEach((m) => repo.deleteMaterial(m.id));
+  }
 
   async function rename() {
     const name = await promptDialog("Fach umbenennen", { label: "Name", initial: subject!.name });
@@ -77,11 +87,20 @@ export default function SubjectPage({ subjectId }: { subjectId: string }) {
         </p>
         <MaterialUpload subjectId={subjectId} />
         {fresh.length > 0 ? (
-          <ul className="material-list">
-            {fresh.map((m) => (
-              <MaterialRow key={m.id} material={m} onPreview={setPreview} />
-            ))}
-          </ul>
+          <MaterialList
+            materials={fresh}
+            row={(m) => <MaterialRow key={m.id} material={m} onPreview={setPreview} />}
+            folderActions={(folder, items) => (
+              <button
+                className="btn btn-ghost btn-icon btn-sm"
+                aria-label={`Ordner ${folder} löschen`}
+                title="Ordner löschen"
+                onClick={() => deleteFolder(folder, items)}
+              >
+                🗑
+              </button>
+            )}
+          />
         ) : (
           <p className="muted small">Gerade kein neues Material.</p>
         )}
@@ -95,8 +114,11 @@ export default function SubjectPage({ subjectId }: { subjectId: string }) {
         {used.length > 0 && (
           <details className="used-materials">
             <summary className="small">Material aus früheren Tests und Lernplänen ({used.length})</summary>
-            <ul className="material-list">
-              {used.map(({ material, tests: usedBy, plans: inPlans }) => (
+            <MaterialList
+              materials={used.map((u) => u.material)}
+              row={(material) => {
+                const { tests: usedBy, plans: inPlans } = used.find((u) => u.material.id === material.id)!;
+                return (
                 <MaterialRow
                   key={material.id}
                   material={material}
@@ -116,8 +138,9 @@ export default function SubjectPage({ subjectId }: { subjectId: string }) {
                     </>
                   }
                 />
-              ))}
-            </ul>
+                );
+              }}
+            />
           </details>
         )}
       </section>

@@ -1823,3 +1823,91 @@ details.card[open] > summary {
     background: var(--text);
   }
 }
+
+/* ---------- Ordner und Tabellen ---------- */
+
+.material-folder {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0.35rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+.material-folder-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding-left: 0.25rem;
+}
+.material-folder-toggle {
+  display: flex;
+  align-items: baseline;
+  gap: 0.45rem;
+  flex: 1;
+  min-width: 0;
+  padding: 0.3rem 0.2rem;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  border-radius: 6px;
+}
+.material-folder-toggle:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+.material-folder-icon {
+  white-space: nowrap;
+}
+.material-folder-name {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.material-folder-items {
+  padding-left: 0.5rem;
+}
+.upload-notice {
+  margin: 0;
+}
+.sheet-preview {
+  max-height: 65vh;
+  overflow: auto;
+  font-size: 0.85rem;
+}
+.sheet-preview .markdown h2 {
+  font-size: 1rem;
+  margin: 1.2em 0 0.4em;
+}
+.sheet-preview .markdown table {
+  font-variant-numeric: tabular-nums;
+}
+.sheet-preview .markdown td:first-child,
+.sheet-preview .markdown th {
+  color: var(--muted);
+  background: var(--surface-2);
+}
+@media (max-width: 560px) {
+  /* Name bekommt die ganze Zeile, Rolle und Knöpfe rutschen darunter */
+  .material-item {
+    flex-wrap: wrap;
+    row-gap: 0.35rem;
+  }
+  .material-item .material-name {
+    flex: 1 1 calc(100% - 3.6rem);
+  }
+  .material-item select {
+    margin-left: auto;
+  }
+  .material-folder {
+    padding: 0.25rem;
+  }
+  .material-folder-items {
+    padding-left: 0;
+  }
+}
+.material-folder-toggle .muted {
+  white-space: nowrap;
+}

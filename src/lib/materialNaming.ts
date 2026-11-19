@@ -34,6 +34,22 @@ export function useNamingIds(): ReadonlySet<string> {
 
 const TEXT_LIMIT = 4000;
 
+/** Höchstens so viele Benennungen laufen gleichzeitig – wichtig, wenn ein ganzer Ordner hochgeladen wird. */
+const MAX_PARALLEL = 2;
+let active = 0;
+const waiting: (() => void)[] = [];
+
+async function withSlot<T>(job: () => Promise<T>): Promise<T> {
+  if (active >= MAX_PARALLEL) await new Promise<void>((resolve) => waiting.push(resolve));
+  active++;
+  try {
+    return await job();
+  } finally {
+    active--;
+    waiting.shift()?.();
+  }
+}
+
 /** Textauszug bzw. Bild der ersten Seite – genug, um das Material zu erkennen. */
 async function namingInput(m: Material, content: { blob?: Blob; text?: string }): Promise<{ text?: string; image?: Blob }> {
   if (m.kind === "text") return { text: (content.text ?? "").slice(0, TEXT_LIMIT) };
@@ -56,13 +72,15 @@ export function autoNameMaterial(material: Material, content: { blob?: Blob; tex
   if (!getSettings().autoNameMaterials || !isMeaninglessName(material.name)) return;
   naming.add(material.id);
   changed();
-  void (async () => {
+  void withSlot(async () => {
     try {
       const input = await namingInput(material, content);
       let suggestion: { name: string; role: Material["role"] | null } | null = null;
       if (input.text?.trim() || input.image) {
         try {
-          const s = await platform.suggestMaterialName({ fileName: material.name, ...input });
+          // Der Ordner verrät oft, worum es geht („Lösungen/Scan 3.pdf“).
+          const fileName = material.folder ? `${material.folder}/${material.name}` : material.name;
+          const s = await platform.suggestMaterialName({ fileName, ...input });
           const name = cleanSuggestedName(s.name);
           if (name) suggestion = { name, role: s.role };
         } catch {
@@ -81,5 +99,5 @@ export function autoNameMaterial(material: Material, content: { blob?: Blob; tex
       naming.delete(material.id);
       changed();
     }
-  })();
+  });
 }

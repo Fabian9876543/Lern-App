@@ -2,6 +2,7 @@ import { useState } from "react";
 import { addPlanMaterials, removePlanMaterial } from "../lib/plans";
 import { useStore } from "../store/store";
 import type { Material, StudyPlan } from "../types";
+import MaterialList from "./MaterialList";
 import MaterialPreview from "./MaterialPreview";
 import MaterialRow from "./MaterialRow";
 import MaterialUpload from "./MaterialUpload";
@@ -51,8 +52,18 @@ export default function PlanMaterials({ plan }: { plan: StudyPlan }) {
       )}
 
       {inPlan.length > 0 && (
-        <ul className="material-list">
-          {inPlan.map((m) => (
+        <MaterialList
+          materials={inPlan}
+          folderActions={(folder, items) => (
+            <button
+              className="btn btn-ghost btn-sm"
+              onClick={() => items.forEach((m) => removePlanMaterial(plan.id, m.id))}
+              aria-label={`Ordner ${folder} aus dem Lernplan nehmen`}
+            >
+              Ordner herausnehmen
+            </button>
+          )}
+          row={(m) => (
             <MaterialRow
               key={m.id}
               material={m}
@@ -69,8 +80,8 @@ export default function PlanMaterials({ plan }: { plan: StudyPlan }) {
                 </button>
               }
             />
-          ))}
-        </ul>
+          )}
+        />
       )}
 
       {adding && (
@@ -79,8 +90,18 @@ export default function PlanMaterials({ plan }: { plan: StudyPlan }) {
           {others.length > 0 && (
             <details className="used-materials">
               <summary className="small">Material aus dem Fach übernehmen ({others.length})</summary>
-              <ul className="material-list">
-                {others.map((m) => (
+              <MaterialList
+                materials={others}
+                folderActions={(folder, items) => (
+                  <button
+                    className="btn btn-ghost btn-sm"
+                    onClick={() => add(items.map((m) => m.id))}
+                    aria-label={`Ordner ${folder} zum Lernplan hinzufügen`}
+                  >
+                    Ganzen Ordner hinzufügen
+                  </button>
+                )}
+                row={(m) => (
                   <MaterialRow
                     key={m.id}
                     material={m}
@@ -92,8 +113,8 @@ export default function PlanMaterials({ plan }: { plan: StudyPlan }) {
                       </button>
                     }
                   />
-                ))}
-              </ul>
+                )}
+              />
             </details>
           )}
           {inPlan.length > 0 && (

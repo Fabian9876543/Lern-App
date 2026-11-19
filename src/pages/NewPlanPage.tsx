@@ -1,5 +1,6 @@
 import platform from "@platform-impl";
 import { useEffect, useRef, useState } from "react";
+import MaterialList from "../components/MaterialList";
 import { WeekdayMinutesInput } from "../components/PlanParts";
 import { parseTopicLines } from "../ai/topics";
 import { ROLE_LABELS } from "../lib/files";
@@ -220,8 +221,18 @@ export default function NewPlanPage({ subjectId }: { subjectId: string }) {
         {materials.length === 0 ? (
           <p className="muted">Noch kein Material in diesem Fach – das geht auch ohne.</p>
         ) : (
-          <ul className="material-list">
-            {materials.map((m) => (
+          <MaterialList
+            materials={materials}
+            selection={{
+              isSelected: (id) => selected.has(id),
+              setMany: (ids, on) =>
+                setSelected((prev) => {
+                  const next = new Set(prev);
+                  ids.forEach((id) => (on ? next.add(id) : next.delete(id)));
+                  return next;
+                }),
+            }}
+            row={(m) => (
               <li key={m.id} className="material-item">
                 <label className="check grow">
                   <input type="checkbox" checked={selected.has(m.id)} onChange={() => toggle(m.id)} />
@@ -229,8 +240,8 @@ export default function NewPlanPage({ subjectId }: { subjectId: string }) {
                 </label>
                 <span className={`chip role-chip role-${m.role}`}>{ROLE_LABELS[m.role]}</span>
               </li>
-            ))}
-          </ul>
+            )}
+          />
         )}
         <label className="field">
           <span>Hinweise für Claude {noMaterial ? "(empfohlen ohne Material)" : "(optional)"}</span>
