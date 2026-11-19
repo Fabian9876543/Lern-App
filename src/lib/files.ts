@@ -92,10 +92,20 @@ export function guessRole(fileName: string, folder?: string): MaterialRole {
  * nicht lesen kann – etwa OneDrive- oder iCloud-Dateien, die nur online liegen –,
  * statt später als leere Datei gespeichert zu sein.
  */
+const READ_TIMEOUT_MS = 120_000;
+
 async function readableCopy(file: File, type: string): Promise<Blob> {
   let bytes: ArrayBuffer;
   try {
-    bytes = await file.arrayBuffer();
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const timeout = new Promise<never>((_, reject) => {
+      timer = setTimeout(() => reject(new Error("timeout")), READ_TIMEOUT_MS);
+    });
+    try {
+      bytes = await Promise.race([file.arrayBuffer(), timeout]);
+    } finally {
+      clearTimeout(timer);
+    }
   } catch {
     throw new UnsupportedFileError(
       `„${file.name}“ konnte nicht gelesen werden. Liegt die Datei nur in der Cloud (z. B. OneDrive oder iCloud)? Dann bitte zuerst auf das Gerät laden.`,

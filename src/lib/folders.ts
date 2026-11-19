@@ -52,11 +52,11 @@ export async function collectEntries(entries: EntryLike[], maxFiles = MAX_FOLDER
   async function walk(entry: EntryLike): Promise<void> {
     if (out.length >= maxFiles) return;
     if (entry.isFile && entry.file) {
-      if (isJunkPath(entry.fullPath)) return;
+      // Systemdateien kommen mit – der Upload-Bericht zählt sie als ausgelassen.
       const file = await new Promise<File>((resolve, reject) => entry.file!(resolve, reject));
       out.push({ file, folder: folderOf(entry.fullPath) });
     } else if (entry.isDirectory && entry.createReader) {
-      if (isJunkPath(`${entry.fullPath}/x`)) return;
+      if (isJunkPath(`${entry.fullPath}/x`)) return; // versteckte Ordner wie .git gar nicht erst durchsuchen
       const reader = entry.createReader();
       // readEntries liefert die Einträge in Portionen – so lange lesen, bis nichts mehr kommt.
       for (;;) {
@@ -86,16 +86,32 @@ export function pickedFromDrop(dt: DataTransfer): Promise<PickedFile[]> {
 export interface UploadPlan {
   accepted: PickedFile[];
   unsupported: { name: string; hint: string | null }[];
-  /** Ausgelassene System- und versteckte Dateien. */
-  junk: number;
+  /** Ausgelassene System- und versteckte Dateien (Pfade). */
+  junk: string[];
+  /** Dateien aus Ordnern, die schon als Material vorhanden sind (Pfade). */
+  duplicates: string[];
 }
 
-/** Trennt lesbare Dateien von Systemdateien und nicht unterstützten Formaten; sortiert nach Ordner und Name. */
-export function planUpload(items: PickedFile[]): UploadPlan {
-  const plan: UploadPlan = { accepted: [], unsupported: [], junk: 0 };
+export function pathOf(item: PickedFile): string {
+  return item.folder ? `${item.folder}/${item.file.name}` : item.file.name;
+}
+
+/** Pfade („Ordner/Datei“) des Materials, das aus Ordnern hochgeladen wurde. */
+export function existingFolderPaths(materials: Material[]): Set<string> {
+  return new Set(materials.filter((m) => m.folder).map((m) => `${m.folder}/${m.fileName ?? m.originalName ?? m.name}`));
+}
+
+/**
+ * Trennt lesbare Dateien von Systemdateien, nicht unterstützten Formaten und
+ * Dateien, die aus demselben Ordner schon hochgeladen wurden (so lässt sich ein
+ * Ordner einfach noch einmal hochladen); sortiert nach Ordner und Name.
+ */
+export function planUpload(items: PickedFile[], existing: Set<string> = new Set()): UploadPlan {
+  const plan: UploadPlan = { accepted: [], unsupported: [], junk: [], duplicates: [] };
   for (const item of items) {
-    const path = item.folder ? `${item.folder}/${item.file.name}` : item.file.name;
-    if (isJunkPath(path)) plan.junk++;
+    const path = pathOf(item);
+    if (isJunkPath(path)) plan.junk.push(path);
+    else if (item.folder && existing.has(path)) plan.duplicates.push(path);
     else if (isSupportedFile(item.file.name, item.file.type)) plan.accepted.push(item);
     else plan.unsupported.push({ name: path, hint: conversionHint(item.file.name) });
   }
@@ -104,16 +120,17 @@ export function planUpload(items: PickedFile[]): UploadPlan {
   return plan;
 }
 
-/** Ein Satz über übersprungene Dateien, z. B. für 2 Word-Dateien und eine .xls-Datei. */
-export function describeSkipped(unsupported: UploadPlan["unsupported"]): string | null {
-  if (unsupported.length === 0) return null;
-  const hints = [...new Set(unsupported.map((u) => u.hint).filter((h): h is string => !!h))];
-  const names = unsupported.slice(0, 3).map((u) => `„${u.name.split("/").pop()}“`);
-  const more = unsupported.length > 3 ? ` und ${unsupported.length - 3} weitere` : "";
-  const count = unsupported.length === 1 ? "1 Datei" : `${unsupported.length} Dateien`;
-  return `${count} übersprungen, weil die App das Format nicht lesen kann: ${names.join(", ")}${more}.${
-    hints.length ? ` Tipp: ${hints.join("; ")}.` : ""
-  }`;
+/** Grund für ein nicht unterstütztes Format, z. B. „Format nicht lesbar – Word-Dokumente bitte als PDF exportieren“. */
+export function unsupportedReason(hint: string | null): string {
+  return hint ? `Format nicht lesbar – ${hint}` : "Dieses Format kann die App nicht lesen";
+}
+
+/** Fehlermeldung ohne den vorangestellten Dateinamen (der steht im Bericht schon davor). */
+export function shortReason(message: string, fileName: string): string {
+  let r = message.trim();
+  const prefix = `„${fileName}“`;
+  if (r.startsWith(prefix)) r = r.slice(prefix.length).replace(/^[\s:–-]+/, "");
+  return r ? r[0].toUpperCase() + r.slice(1) : "Unbekannter Fehler";
 }
 
 export interface FolderGroup {

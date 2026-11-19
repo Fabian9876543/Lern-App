@@ -2,11 +2,13 @@ import { describe, expect, it } from "vitest";
 import { guessRole } from "../src/lib/files";
 import {
   collectEntries,
-  describeSkipped,
+  existingFolderPaths,
   folderOf,
   groupByFolder,
   isJunkPath,
   planUpload,
+  shortReason,
+  unsupportedReason,
   type EntryLike,
   type PickedFile,
 } from "../src/lib/folders";
@@ -45,11 +47,40 @@ describe("Ordner", () => {
       "Ana/Übungen/Blatt 2.pdf",
       "Ana/Übungen/Blatt 10.pdf",
     ]);
-    expect(plan.junk).toBe(1);
-    expect(describeSkipped(plan.unsupported)).toBe(
-      "2 Dateien übersprungen, weil die App das Format nicht lesen kann: „Vorlesung.docx“, „alt.xls“. Tipp: Word-Dokumente bitte als PDF exportieren; Tabellen bitte als .xlsx speichern.",
+    expect(plan.junk).toEqual(["Ana/.DS_Store"]);
+    expect(plan.unsupported.map((u) => [u.name, unsupportedReason(u.hint)])).toEqual([
+      ["Ana/Vorlesung.docx", "Format nicht lesbar – Word-Dokumente bitte als PDF exportieren"],
+      ["Ana/alt.xls", "Format nicht lesbar – Tabellen bitte als .xlsx speichern"],
+    ]);
+  });
+
+  it("überspringt beim erneuten Hochladen, was aus dem Ordner schon da ist", () => {
+    const existing = existingFolderPaths([
+      { id: "1", folder: "Ana/Übungen", name: "Lösungen zu Blatt 1", originalName: "Scan 3.pdf", fileName: "Scan 3.pdf" },
+      { id: "2", folder: "Ana/Übungen", name: "Blatt 2 (umbenannt)", fileName: "Blatt 2.pdf" },
+      { id: "3", folder: "Ana", name: "Alt ohne Dateinamen.pdf" },
+      { id: "4", name: "Einzeln.pdf" },
+    ] as Material[]);
+    const plan = planUpload(
+      [
+        { file: file("Scan 3.pdf", "application/pdf"), folder: "Ana/Übungen" },
+        { file: file("Blatt 2.pdf", "application/pdf"), folder: "Ana/Übungen" },
+        { file: file("Blatt 3.pdf", "application/pdf"), folder: "Ana/Übungen" },
+        { file: file("Alt ohne Dateinamen.pdf", "application/pdf"), folder: "Ana" },
+        // Einzelne Dateien werden nie als doppelt übersprungen
+        { file: file("Einzeln.pdf", "application/pdf") },
+      ],
+      existing,
     );
-    expect(describeSkipped([])).toBeNull();
+    expect(plan.duplicates).toEqual(["Ana/Übungen/Scan 3.pdf", "Ana/Übungen/Blatt 2.pdf", "Ana/Alt ohne Dateinamen.pdf"]);
+    expect(plan.accepted.map((i) => i.file.name)).toEqual(["Einzeln.pdf", "Blatt 3.pdf"]);
+  });
+
+  it("kürzt Fehlermeldungen um den Dateinamen", () => {
+    expect(shortReason("„Nur online.pdf“ konnte nicht gelesen werden. Liegt die Datei nur in der Cloud?", "Nur online.pdf")).toBe(
+      "Konnte nicht gelesen werden. Liegt die Datei nur in der Cloud?",
+    );
+    expect(shortReason("Die Datei ist zu groß (max. 20 MB).", "Folien.pdf")).toBe("Die Datei ist zu groß (max. 20 MB).");
   });
 
   it("sammelt gezogene Ordner samt Unterordnern ein", async () => {
@@ -78,10 +109,12 @@ describe("Ordner", () => {
       f("/Ana/.DS_Store"),
     ]);
     const picked = await collectEntries([tree, f("/Einzeln.pdf")]);
+    // Systemdateien kommen mit (der Bericht zählt sie), versteckte Ordner wie .git nicht
     expect(picked.map((p) => [p.folder, p.file.name])).toEqual([
       ["Ana", "Skript.pdf"],
       ["Ana/Übungen", "Blatt 1.pdf"],
       ["Ana/Übungen", "Blatt 2.pdf"],
+      ["Ana", ".DS_Store"],
       [undefined, "Einzeln.pdf"],
     ]);
   });

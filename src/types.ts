@@ -25,6 +25,8 @@ export interface Material {
   text?: string;
   /** Ordnerpfad, wenn das Material als Teil eines Ordners hochgeladen wurde, z. B. „Analysis 1/Übungsblätter“. */
   folder?: string;
+  /** Dateiname beim Hochladen – bleibt auch nach dem Umbenennen, damit ein Ordner erneut hochgeladen werden kann. */
+  fileName?: string;
   size: number;
   createdAt: number;
 }

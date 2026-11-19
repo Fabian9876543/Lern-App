@@ -37,6 +37,8 @@ Beide Varianten entstehen aus demselben Code (`src/targets/artifact` bzw. `src/t
   oder löschen. Die Rolle wird auch aus dem Ordnernamen erkannt („Lösungen/Scan 3.pdf“ → Lösungen). Systemdateien
   (.DS_Store, ~$-Sperrdateien …) werden ausgelassen; Formate, die die App nicht lesen kann (z. B. Word), werden mit einem
   Tipp genannt. Dateien, die nur in der Cloud liegen (OneDrive, iCloud), meldet die App, statt sie leer zu speichern.
+  Nach dem Hochladen zeigt ein Bericht jede Datei, die nicht hochgeladen wurde, mit Grund. Wird derselbe Ordner noch
+  einmal hochgeladen, überspringt die App, was schon da ist – so lässt sich Fehlendes einfach ergänzen.
 - **Excel-Dateien (.xlsx, .xlsm):** Alle Tabellenblätter werden als Tabellen mit Zeilennummern und Spaltenbuchstaben
   übernommen – mit Zahlenformaten (Datum, Prozent, Euro) und einer Liste der Formeln, sodass sich Aufgaben auf Zellen
   beziehen können. Gespeichert wird der Inhalt, nicht die Originaldatei; Diagramme und Bilder darin werden nicht

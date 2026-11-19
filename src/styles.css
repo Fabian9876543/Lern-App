@@ -1911,3 +1911,25 @@ details.card[open] > summary {
 .material-folder-toggle .muted {
   white-space: nowrap;
 }
+.upload-report {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.upload-report p {
+  margin: 0;
+}
+.upload-problems {
+  margin: 0;
+  padding-left: 1.2rem;
+  max-height: 14rem;
+  overflow-y: auto;
+  font-size: 0.85rem;
+  overflow-wrap: anywhere;
+}
+.upload-problems li + li {
+  margin-top: 0.2rem;
+}
+.upload-report details summary {
+  cursor: pointer;
+}

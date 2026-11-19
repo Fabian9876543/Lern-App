@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { autoNameMaterial } from "../lib/materialNaming";
-import { ACCEPTED_FILE_TYPES, ROLE_LABELS, formatBytes, guessRole, prepareFile } from "../lib/files";
-import { describeSkipped, pickedFromInput, planUpload, type PickedFile } from "../lib/folders";
+import { ACCEPTED_FILE_TYPES, ROLE_LABELS } from "../lib/files";
+import { pickedFromInput, type PickedFile } from "../lib/folders";
+import { dismissUploadReport, reportWorthShowing, uploadFiles, useUploadState, type UploadReport } from "../lib/upload";
 import { confirmDialog } from "./Dialogs";
 import { newId } from "../lib/ids";
 import { repo } from "../store/store";
@@ -13,10 +14,6 @@ import Modal from "./Modal";
  * Hochladen von Material (Dateien oder eingefügter Text). Nichtssagende
  * Dateinamen werden danach automatisch benannt.
  */
-/** Ab dieser Größe fragt die App nach, bevor ein Ordner hochgeladen wird. */
-const CONFIRM_FILES = 25;
-const CONFIRM_BYTES = 100 * 1024 * 1024;
-
 export default function MaterialUpload({
   subjectId,
   onAdded,
@@ -27,9 +24,7 @@ export default function MaterialUpload({
   onAdded?: (ids: string[]) => void;
   hint?: string;
 }) {
-  const [errors, setErrors] = useState<string[]>([]);
-  const [notice, setNotice] = useState<string | null>(null);
-  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
+  const { progress, report } = useUploadState(subjectId);
   const [showPaste, setShowPaste] = useState(false);
   const folderInputRef = useRef<HTMLInputElement>(null);
 
@@ -39,44 +34,11 @@ export default function MaterialUpload({
     folderInputRef.current?.setAttribute("directory", "");
   }, []);
 
-  async function addFiles(items: PickedFile[]) {
-    const plan = planUpload(items);
-    setErrors([]);
-    setNotice(describeSkipped(plan.unsupported));
-    if (plan.accepted.length === 0) return;
-    const roots = [...new Set(plan.accepted.map((i) => i.folder?.split("/")[0]).filter((f): f is string => !!f))];
-    const bytes = plan.accepted.reduce((sum, i) => sum + i.file.size, 0);
-    if (roots.length && (plan.accepted.length > CONFIRM_FILES || bytes > CONFIRM_BYTES)) {
-      const ok = await confirmDialog(
-        `${roots.map((r) => `„${r}“`).join(", ")} ${roots.length === 1 ? "enthält" : "enthalten"} ${plan.accepted.length} lesbare Dateien (${formatBytes(bytes)}). Alle hochladen?`,
-        { title: "Ordner hochladen", confirmLabel: "Alle hochladen" },
-      );
-      if (!ok) return;
-    }
-
-    setProgress({ done: 0, total: plan.accepted.length });
-    const failed: string[] = [];
-    const added: string[] = [];
-    for (const { file, folder } of plan.accepted) {
-      try {
-        const { blob, text, ...prepared } = await prepareFile(file);
-        const id = newId();
-        await repo.addMaterial(
-          { id, subjectId, role: guessRole(file.name, folder), createdAt: Date.now(), ...(folder ? { folder } : {}), ...prepared },
-          { blob, text },
-        );
-        added.push(id);
-        const material = repo.getMaterial(id);
-        if (material) autoNameMaterial(material, { blob, text });
-      } catch (e) {
-        failed.push(`${folder ? `${folder}/` : ""}${file.name}: ${e instanceof Error ? e.message : String(e)}`);
-      } finally {
-        setProgress((p) => (p ? { ...p, done: p.done + 1 } : p));
-      }
-    }
-    setProgress(null);
-    setErrors(failed);
-    if (added.length) onAdded?.(added);
+  function addFiles(items: PickedFile[]) {
+    void uploadFiles(subjectId, items, {
+      confirmLarge: (message) => confirmDialog(message, { title: "Ordner hochladen", confirmLabel: "Alle hochladen" }),
+      onAdded,
+    });
   }
 
   return (
@@ -103,13 +65,13 @@ export default function MaterialUpload({
         onChange={(e) => {
           const files = Array.from(e.target.files ?? []);
           e.target.value = "";
-          if (files.length) void addFiles(pickedFromInput(files));
+          if (files.length) addFiles(pickedFromInput(files));
         }}
       />
       <div className="row-between">
         <span className="muted small">Unklare Dateinamen wie „IMG_2041.jpg“ werden automatisch benannt.</span>
         <div className="row-wrap">
-          <button className="btn btn-ghost btn-sm" onClick={() => folderInputRef.current?.click()} disabled={!!progress}>
+          <button className="btn btn-ghost btn-sm" onClick={() => folderInputRef.current?.click()}>
             Ordner hochladen
           </button>
           <button className="btn btn-ghost btn-sm" onClick={() => setShowPaste(true)}>
@@ -117,18 +79,63 @@ export default function MaterialUpload({
           </button>
         </div>
       </div>
-      {notice && <p className="muted small upload-notice">{notice}</p>}
-      {errors.map((err, i) => (
-        <p key={i} className="error-text">
-          {err}
-        </p>
-      ))}
+      {report && reportWorthShowing(report) && <UploadReportBox report={report} onClose={() => dismissUploadReport(subjectId)} />}
       {showPaste && (
         <PasteTextModal
           subjectId={subjectId}
           onClose={() => setShowPaste(false)}
           onAdded={(id) => onAdded?.([id])}
         />
+      )}
+    </div>
+  );
+}
+
+/** Ergebnis eines Uploads: was hochgeladen wurde und welche Dateien nicht – mit Grund. */
+function UploadReportBox({ report, onClose }: { report: UploadReport; onClose: () => void }) {
+  const problems = report.problems.length;
+  const files = (n: number) => (n === 1 ? "1 Datei" : `${n} Dateien`);
+  return (
+    <div className={`callout upload-report ${problems ? "callout-warn" : "callout-ok"}`} role="status">
+      <div className="row-between">
+        <strong>
+          {report.added} von {files(report.total)} hochgeladen
+          {report.duplicates > 0 && ` · ${report.duplicates} ${report.duplicates === 1 ? "war" : "waren"} schon vorhanden`}
+        </strong>
+        <button className="btn btn-ghost btn-sm" onClick={onClose}>
+          Schließen
+        </button>
+      </div>
+      {problems > 0 && (
+        <>
+          <p className="small">Nicht hochgeladen ({files(problems)}):</p>
+          <ul className="upload-problems">
+            {report.problems.map((p) => (
+              <li key={p.path}>
+                <strong>{p.path}</strong> – {p.reason}
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+      {report.systemFiles.length > 0 && (
+        <details className="small">
+          <summary>
+            Außerdem {report.systemFiles.length === 1 ? "1 Systemdatei" : `${report.systemFiles.length} Systemdateien`} ausgelassen –
+            die sind kein Lernmaterial
+          </summary>
+          <ul className="upload-problems muted">
+            {report.systemFiles.map((p) => (
+              <li key={p}>{p}</li>
+            ))}
+          </ul>
+        </details>
+      )}
+      {report.duplicates > 0 && (
+        <p className="small muted">
+          Dateien, die aus demselben Ordner schon hochgeladen sind, werden übersprungen – so kannst du einen Ordner einfach
+          noch einmal hochladen, um Fehlendes zu ergänzen.
+        </p>
       )}
     </div>
   );
