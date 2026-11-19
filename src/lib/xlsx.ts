@@ -112,7 +112,7 @@ export function shiftFormula(formula: string, dRow: number, dCol: number): strin
 
 // ---------- Zahlenformate ----------
 
-type Fmt =
+export type Fmt =
   | { type: "general" }
   | { type: "text" }
   | { type: "date"; time: boolean; seconds: boolean; date: boolean; elapsed: boolean }
@@ -228,7 +228,7 @@ interface SheetInfo {
   hidden: boolean;
 }
 
-interface Cell {
+export interface Cell {
   row: number;
   col: number;
   value: string;
@@ -288,11 +288,15 @@ function readStyles(files: Record<string, Uint8Array>): Fmt[] {
   return Array.from(cellXfs.children)
     .filter((el) => el.localName === "xf")
     .map((xf) => {
-      const id = Number(attr(xf, "numFmtId") ?? 0);
-      if (custom.has(id)) return analyzeFormat(custom.get(id)!);
-      if (BUILTIN_DATE_IDS.has(id)) return analyzeFormat("dd.mm.yyyy");
-      return analyzeFormat(BUILTIN_FORMATS[id] ?? "General");
+      return formatForId(Number(attr(xf, "numFmtId") ?? 0), custom);
     });
+}
+
+/** Zahlenformat zu einer Format-ID – eigene Formate der Datei oder eingebaute. Auch für .xls. */
+export function formatForId(id: number, custom: Map<number, string>): Fmt {
+  if (custom.has(id)) return analyzeFormat(custom.get(id)!);
+  if (BUILTIN_DATE_IDS.has(id)) return analyzeFormat("dd.mm.yyyy");
+  return analyzeFormat(BUILTIN_FORMATS[id] ?? "General");
 }
 
 function readCells(xml: string, strings: string[], styles: Fmt[], date1904: boolean): Cell[] {
@@ -355,7 +359,7 @@ function escapeCell(text: string): string {
   return capped.replace(/([|$*\\`])/g, "\\$1");
 }
 
-function sheetMarkdown(sheet: SheetInfo, cells: Cell[]): { text: string; hasFormulas: boolean } {
+function sheetMarkdown(sheet: { name: string; hidden: boolean }, cells: Cell[]): { text: string; hasFormulas: boolean } {
   const title = `## Tabellenblatt „${sheet.name}“${sheet.hidden ? " (ausgeblendet)" : ""}`;
   if (cells.length === 0) return { text: `${title}\n\n(leer)`, hasFormulas: false };
 
@@ -423,7 +427,26 @@ export function xlsxToMarkdown(data: Uint8Array, fileName: string): string {
   const { sheets, date1904 } = readSheetList(files);
   const strings = readSharedStrings(files);
   const styles = readStyles(files);
+  return workbookMarkdown(
+    fileName,
+    sheets.map((sheet) => ({
+      name: sheet.name,
+      hidden: sheet.hidden,
+      cells: () => (files[sheet.path] ? readCells(strFromU8(files[sheet.path]), strings, styles, date1904) : []),
+    })),
+  );
+}
 
+export interface SheetSource {
+  name: string;
+  hidden: boolean;
+  /** Zellen erst bei Bedarf lesen – bei sehr großen Mappen werden spätere Blätter ausgelassen. */
+  cells: () => Cell[];
+}
+
+/** Baut aus den Tabellenblättern einer Excel-Datei (.xlsx oder .xls) den Markdown-Text. */
+export function workbookMarkdown(fileName: string, sheets: SheetSource[], extraNote?: string): string {
+  if (sheets.length === 0) throw new SpreadsheetError(`„${fileName}“ enthält keine Tabellenblätter.`);
   const parts: string[] = [];
   let length = 0;
   let anyFormulas = false;
@@ -433,14 +456,11 @@ export function xlsxToMarkdown(data: Uint8Array, fileName: string): string {
       omitted.push(sheet.name);
       continue;
     }
-    const xml = files[sheet.path];
-    const cells = xml ? readCells(strFromU8(xml), strings, styles, date1904) : [];
-    const md = sheetMarkdown(sheet, cells);
+    const md = sheetMarkdown(sheet, sheet.cells());
     anyFormulas ||= md.hasFormulas;
     parts.push(md.text);
     length += md.text.length;
   }
-  if (sheets.length === 0) throw new SpreadsheetError(`„${fileName}“ enthält keine Tabellenblätter.`);
 
   const head = [
     `Excel-Datei „${fileName}“ mit ${sheets.length === 1 ? "1 Tabellenblatt" : `${sheets.length} Tabellenblättern`}: ${sheets
@@ -450,6 +470,7 @@ export function xlsxToMarkdown(data: Uint8Array, fileName: string): string {
   if (anyFormulas) {
     head.push("Formeln stehen so da, wie Excel sie speichert (englische Funktionsnamen, Komma als Trennzeichen).");
   }
+  if (extraNote) head.push(extraNote);
   if (omitted.length) {
     head.push(`Wegen der Größe nicht übernommen: ${omitted.map((n) => `„${n}“`).join(", ")}.`);
   }

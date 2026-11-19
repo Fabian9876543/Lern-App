@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { isSpreadsheet } from "../lib/files";
+import { isMarkdownMaterial, isSpreadsheet } from "../lib/files";
 import { closePdf, openPdf, renderPage } from "../lib/pdf";
 import Markdown from "./Markdown";
 import { repo } from "../store/store";
@@ -59,8 +59,8 @@ export default function MaterialPreview({ material, onClose }: { material: Mater
       {state.kind === "loading" && <p className="muted">Wird geladen …</p>}
       {state.kind === "error" && <p className="error-text">{state.text}</p>}
       {state.kind === "text" &&
-        (isSpreadsheet(material) ? (
-          <div className="sheet-preview">
+        (isMarkdownMaterial(material) ? (
+          <div className={`sheet-preview ${isSpreadsheet(material) ? "is-sheet" : ""}`}>
             <Markdown>{state.text}</Markdown>
           </div>
         ) : (

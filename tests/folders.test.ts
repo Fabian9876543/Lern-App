@@ -35,22 +35,24 @@ describe("Ordner", () => {
       { file: file("Blatt 10.pdf", "application/pdf"), folder: "Ana/Übungen" },
       { file: file("Blatt 2.pdf", "application/pdf"), folder: "Ana/Übungen" },
       { file: file("Noten.xlsx"), folder: "Ana" },
-      { file: file("Vorlesung.docx"), folder: "Ana" },
-      { file: file("alt.xls"), folder: "Ana" },
+      { file: file("Vorlesung.pptx"), folder: "Ana" },
+      { file: file("Notizen.odt"), folder: "Ana" },
+      { file: file("Protokoll.docx"), folder: "Ana" },
       { file: file(".DS_Store"), folder: "Ana" },
       { file: file("Foto.heic"), folder: "Ana/Fotos" },
     ];
     const plan = planUpload(items);
     expect(plan.accepted.map((i) => `${i.folder}/${i.file.name}`)).toEqual([
       "Ana/Noten.xlsx",
+      "Ana/Protokoll.docx",
       "Ana/Fotos/Foto.heic",
       "Ana/Übungen/Blatt 2.pdf",
       "Ana/Übungen/Blatt 10.pdf",
     ]);
     expect(plan.junk).toEqual(["Ana/.DS_Store"]);
     expect(plan.unsupported.map((u) => [u.name, unsupportedReason(u.hint)])).toEqual([
-      ["Ana/Vorlesung.docx", "Format nicht lesbar – Word-Dokumente bitte als PDF exportieren"],
-      ["Ana/alt.xls", "Format nicht lesbar – Tabellen bitte als .xlsx speichern"],
+      ["Ana/Vorlesung.pptx", "Format nicht lesbar – Präsentationen bitte als PDF exportieren"],
+      ["Ana/Notizen.odt", "Format nicht lesbar – Dokumente bitte als PDF exportieren"],
     ]);
   });
 

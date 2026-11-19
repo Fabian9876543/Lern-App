@@ -9,23 +9,38 @@ export const ROLE_LABELS: Record<MaterialRole, string> = {
 
 export const ACCEPTED_FILE_TYPES =
   "application/pdf,image/*,text/plain,text/markdown,text/csv,.md,.txt,.csv,.tex," +
-  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel.sheet.macroEnabled.12,.xlsx,.xlsm";
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel.sheet.macroEnabled.12,.xlsx,.xlsm," +
+  "application/vnd.ms-excel,.xls,application/msword,.doc," +
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document,.docx";
 
 const API_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
 const TEXT_EXTENSIONS = /\.(txt|md|markdown|csv|tex)$/i;
 const XLSX_EXTENSIONS = /\.(xlsx|xlsm)$/i;
+const XLS_EXTENSION = /\.xls$/i;
+const WORD_EXTENSIONS = /\.(docx?|docm|dot|dotx)$/i;
 /** Formate, die wir nicht lesen, mit einem Tipp, wie es trotzdem geht. */
 const CONVERT_HINTS: [RegExp, string][] = [
-  [/\.(xls|ods|numbers)$/i, "Tabellen bitte als .xlsx speichern"],
-  [/\.(docx?|odt|pages|rtf)$/i, "Word-Dokumente bitte als PDF exportieren"],
+  [/\.(ods|numbers)$/i, "Tabellen bitte als .xlsx speichern"],
+  [/\.(odt|pages|rtf)$/i, "Dokumente bitte als PDF exportieren"],
   [/\.(pptx?|odp|key)$/i, "Präsentationen bitte als PDF exportieren"],
 ];
 
-/** Excel-Dateien werden beim Hochladen in Markdown-Tabellen umgewandelt und so gespeichert. */
-export const SPREADSHEET_MIME = "text/markdown";
+/** ZIP (.xlsx, .docx) bzw. alter Office-Container (.xls, .doc) – am Dateianfang erkennbar. */
+const isZip = (b: Uint8Array) => b[0] === 0x50 && b[1] === 0x4b;
 
-export function isSpreadsheet(m: { kind: MaterialKind; mimeType: string }): boolean {
-  return m.kind === "text" && m.mimeType === SPREADSHEET_MIME;
+/** Excel- und Word-Dateien werden beim Hochladen in Markdown umgewandelt und so gespeichert. */
+export const MARKDOWN_MIME = "text/markdown";
+
+type MaterialLike = { kind: MaterialKind; mimeType: string; name: string; fileName?: string; originalName?: string };
+
+/** Inhalt ist Markdown (Tabellen, Überschriften) und wird in der Vorschau entsprechend angezeigt. */
+export function isMarkdownMaterial(m: MaterialLike): boolean {
+  return m.kind === "text" && m.mimeType === MARKDOWN_MIME;
+}
+
+/** Aus einer Excel-Datei entstanden (für das Symbol in der Liste). */
+export function isSpreadsheet(m: MaterialLike): boolean {
+  return isMarkdownMaterial(m) && /\.(xlsx|xlsm|xls)$/i.test(m.fileName ?? m.originalName ?? m.name);
 }
 
 /** Ob die App diese Datei lesen kann (PDF, Bild, Text, Excel). */
@@ -37,7 +52,9 @@ export function isSupportedFile(name: string, type: string): boolean {
     /\.(heic|heif|jpe?g|png|webp|gif)$/i.test(name) ||
     type.startsWith("text/") ||
     TEXT_EXTENSIONS.test(name) ||
-    XLSX_EXTENSIONS.test(name)
+    XLSX_EXTENSIONS.test(name) ||
+    XLS_EXTENSION.test(name) ||
+    WORD_EXTENSIONS.test(name)
   );
 }
 
@@ -115,6 +132,45 @@ async function readableCopy(file: File, type: string): Promise<Blob> {
   return new Blob([bytes], { type });
 }
 
+/**
+ * Office-Dateien: Inhalt als Text bzw. Markdown speichern. Die Leser werden erst
+ * bei Bedarf geladen. Welches Format vorliegt, entscheidet der Dateianfang –
+ * nicht die Endung (manche .xls-Dateien sind in Wahrheit .xlsx und umgekehrt).
+ */
+async function prepareOfficeFile(file: File): Promise<PreparedFile> {
+  const bytes = new Uint8Array(await (await readableCopy(file, file.type)).arrayBuffer());
+  const word = WORD_EXTENSIONS.test(file.name);
+  const zip = isZip(bytes);
+  try {
+    if (word) {
+      if (zip) {
+        const { docxToMarkdown } = await import("./docx");
+        const text = docxToMarkdown(bytes, file.name);
+        return { name: file.name, kind: "text", mimeType: MARKDOWN_MIME, text, size: text.length };
+      }
+      if (new TextDecoder().decode(bytes.subarray(0, 5)) === "{\\rtf") {
+        throw new UnsupportedFileError(`„${file.name}“ ist ein RTF-Dokument – bitte in Word als PDF speichern.`);
+      }
+      const { docToText } = await import("./doc");
+      const text = docToText(bytes, file.name);
+      return { name: file.name, kind: "text", mimeType: "text/plain", text, size: text.length };
+    }
+    if (zip) {
+      const { xlsxToMarkdown } = await import("./xlsx");
+      const text = xlsxToMarkdown(bytes, file.name);
+      return { name: file.name, kind: "text", mimeType: MARKDOWN_MIME, text, size: text.length };
+    }
+    const { xlsToMarkdown } = await import("./xls");
+    const text = xlsToMarkdown(bytes, file.name);
+    return { name: file.name, kind: "text", mimeType: MARKDOWN_MIME, text, size: text.length };
+  } catch (e) {
+    // Lesefehler der Office-Leser (beschädigt, Passwort, zu alt …) verständlich weitergeben
+    if (e instanceof UnsupportedFileError) throw e;
+    if (e instanceof Error && /^„/.test(e.message)) throw new UnsupportedFileError(e.message);
+    throw new UnsupportedFileError(`„${file.name}“ konnte nicht gelesen werden.`);
+  }
+}
+
 export async function prepareFile(file: File): Promise<PreparedFile> {
   const type = file.type;
   if (type === "application/pdf" || /\.pdf$/i.test(file.name)) {
@@ -126,16 +182,8 @@ export async function prepareFile(file: File): Promise<PreparedFile> {
     const blob = await normalizeImage(file);
     return { name: file.name, kind: "image", mimeType: blob.type, blob, size: blob.size };
   }
-  if (XLSX_EXTENSIONS.test(file.name)) {
-    // Excel: alle Tabellenblätter als Markdown-Tabellen speichern (Leser wird erst bei Bedarf geladen).
-    const { xlsxToMarkdown, SpreadsheetError } = await import("./xlsx");
-    try {
-      const text = xlsxToMarkdown(new Uint8Array(await (await readableCopy(file, file.type)).arrayBuffer()), file.name);
-      return { name: file.name, kind: "text", mimeType: SPREADSHEET_MIME, text, size: text.length };
-    } catch (e) {
-      if (e instanceof SpreadsheetError) throw new UnsupportedFileError(e.message);
-      throw e;
-    }
+  if (XLSX_EXTENSIONS.test(file.name) || XLS_EXTENSION.test(file.name) || WORD_EXTENSIONS.test(file.name)) {
+    return prepareOfficeFile(file);
   }
   if (type.startsWith("text/") || TEXT_EXTENSIONS.test(file.name)) {
     const text = await file.text();

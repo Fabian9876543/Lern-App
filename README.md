@@ -31,18 +31,22 @@ Beide Varianten entstehen aus demselben Code (`src/targets/artifact` bzw. `src/t
 
 ## Funktionen
 
-- Fächer mit beliebig vielen Materialien (PDF, Fotos/Bilder, Excel, Textdateien oder eingefügter Text)
+- Fächer mit beliebig vielen Materialien (PDF, Fotos/Bilder, Excel, Word, Textdateien oder eingefügter Text)
 - **Ganze Ordner hochladen:** per „Ordner hochladen“ oder einfach hineinziehen – mit allen Unterordnern. Die Ordner
   bleiben als aufklappbare Gruppen erhalten und lassen sich als Ganzes für einen Test oder Lernplan auswählen, abwählen
   oder löschen. Die Rolle wird auch aus dem Ordnernamen erkannt („Lösungen/Scan 3.pdf“ → Lösungen). Systemdateien
   (.DS_Store, ~$-Sperrdateien …) werden ausgelassen; Formate, die die App nicht lesen kann (z. B. Word), werden mit einem
-  Tipp genannt. Dateien, die nur in der Cloud liegen (OneDrive, iCloud), meldet die App, statt sie leer zu speichern.
+  Tipp genannt (z. B. PowerPoint → als PDF exportieren). Dateien, die nur in der Cloud liegen (OneDrive, iCloud), meldet die App, statt sie leer zu speichern.
   Nach dem Hochladen zeigt ein Bericht jede Datei, die nicht hochgeladen wurde, mit Grund. Wird derselbe Ordner noch
   einmal hochgeladen, überspringt die App, was schon da ist – so lässt sich Fehlendes einfach ergänzen.
-- **Excel-Dateien (.xlsx, .xlsm):** Alle Tabellenblätter werden als Tabellen mit Zeilennummern und Spaltenbuchstaben
-  übernommen – mit Zahlenformaten (Datum, Prozent, Euro) und einer Liste der Formeln, sodass sich Aufgaben auf Zellen
-  beziehen können. Gespeichert wird der Inhalt, nicht die Originaldatei; Diagramme und Bilder darin werden nicht
-  übernommen, sehr große Blätter gekürzt. Alte .xls- oder .ods-Dateien bitte als .xlsx speichern.
+- **Excel-Dateien (.xlsx, .xlsm und alte .xls):** Alle Tabellenblätter werden als Tabellen mit Zeilennummern und
+  Spaltenbuchstaben übernommen – mit Zahlenformaten (Datum, Prozent, Euro) und bei .xlsx mit einer Liste der Formeln,
+  sodass sich Aufgaben auf Zellen beziehen können (bei .xls nur die Ergebnisse der Formeln). Gespeichert wird der
+  Inhalt, nicht die Originaldatei; Diagramme und Bilder darin werden nicht übernommen, sehr große Blätter gekürzt.
+- **Word-Dateien (.docx und alte .doc):** Der Text wird übernommen – bei .docx mit Überschriften, Aufzählungen und
+  Tabellen, bei .doc mit Tabellen als Zeilen; Fußnoten, Kopfzeilen und Textfelder kommen dazu. Bilder werden nicht
+  übernommen; wer sie braucht, speichert das Dokument als PDF. Passwortgeschützte oder sehr alte Dateien (Word/Excel
+  95) meldet die App.
 - **Material pro Test:** Neues Material steht oben in „Neues Material“ und kann auch direkt auf der Seite „Neuer
   Test“ hochgeladen werden. Sobald daraus ein Test erstellt ist, wandert es zu diesem Test – die Liste ist wieder
   frei für den nächsten. Früheres Material lässt sich bei Bedarf wieder dazunehmen.

@@ -1884,8 +1884,8 @@ details.card[open] > summary {
 .sheet-preview .markdown table {
   font-variant-numeric: tabular-nums;
 }
-.sheet-preview .markdown td:first-child,
-.sheet-preview .markdown th {
+.sheet-preview.is-sheet .markdown td:first-child,
+.sheet-preview.is-sheet .markdown th {
   color: var(--muted);
   background: var(--surface-2);
 }
