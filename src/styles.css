@@ -1936,3 +1936,22 @@ details.card[open] > summary {
 .mode-cards.three {
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
 }
+
+/* ---------- Lernzettel herunterladen ---------- */
+
+.note-downloads {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+.note-downloads.end {
+  justify-content: flex-end;
+}
+.note-downloads .error-text {
+  flex-basis: 100%;
+  margin: 0;
+}
+.note-downloads.end .error-text {
+  text-align: right;
+}

@@ -88,7 +88,12 @@ Beide Varianten entstehen aus demselben Code (`src/targets/artifact` bzw. `src/t
   einer Datei: Material auswählen (ganze Ordner mit einem Häkchen), optional ein Thema bzw. einen Schwerpunkt angeben
   und den Umfang wählen (Spickzettel, normal, ausführlich). Claude schreibt den Lernzettel mit Überblick, einem
   Abschnitt pro Thema mit Fundstellen und Beispielen, typischen Fehlern und Selbstcheck. Er lässt sich umbenennen,
-  neu schreiben, als Markdown-Datei herunterladen und löschen; alle Lernzettel eines Fachs stehen auf der Fachseite.
+  neu schreiben, herunterladen (PDF oder Markdown) und löschen; alle Lernzettel eines Fachs stehen auf der Fachseite.
+- **Lernzettel als PDF:** Jeder Lernzettel (aus Material oder aus dem Lernplan) lässt sich als A4-PDF herunterladen –
+  mit echtem, markierbarem und durchsuchbarem Text, Formeln als Vektorgrafik, Tabellen, Listen und Code wie in der App,
+  Titel, Fach und Datum oben und Seitenzahlen unten. Seitenumbrüche zerschneiden keine Zeilen, Formeln oder
+  Tabellenzeilen; Überschriften bleiben bei ihrem Text, und lange Tabellen wiederholen ihre Kopfzeile. Das PDF wird
+  komplett im Browser erzeugt (nichts geht an einen Server) und ist meist nur 20–100 KB groß.
 - **Lernzettel:** Zu jeder Lern-Aufgabe im Plan schreibt Claude auf Knopfdruck einen Lernzettel – das Wichtigste,
   ein Vorgehen für typische Aufgaben, vorgerechnete Beispiele, typische Fehler und ein kurzer Selbstcheck. Er wird
   gespeichert und ist auch über den Themenstand erreichbar.
@@ -175,5 +180,7 @@ Aufbau:
 | `src/targets/artifact/` | claude.ai-Version: Claude über das Abo, Artifact-Speicher, PDF-Auslesen |
 | `src/store/` | Datenhaltung (gemeinsam für beide Varianten) |
 | `src/lib/` | Auswertung, Dateiverarbeitung, PDF, Durchläufe, Backup, Lernplan (`planner.ts`: Kalender ohne KI, `plans.ts`: Aktionen) |
+| `src/lib/pdfExport/` | Lernzettel als PDF: im Browser unsichtbar setzen (`layout.tsx`), Seiten aufteilen (`paginate.ts`), mit pdf-lib zeichnen (`paint.ts`) |
+| `src/assets/pdf-fonts/` | Eingebettete Schriften für den PDF-Export (Inter, DejaVu Sans, JetBrains Mono; erzeugt mit `scripts/make-pdf-fonts.py`, Lizenzen in `LICENSES.md`) |
 | `src/pages/` | Seiten (Übersicht, Fach, Test erstellen, Test, Durchlauf, Ergebnis, Lernplan, Lernzettel, Einstellungen) |
 | `src/components/` | Wiederverwendbare Bausteine (Antwortfelder, Feedback, Markdown/LaTeX, Editor) |

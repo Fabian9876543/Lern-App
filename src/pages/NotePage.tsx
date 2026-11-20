@@ -2,6 +2,7 @@ import platform from "@platform-impl";
 import { useEffect, useReducer, useRef, useState } from "react";
 import { confirmDialog } from "../components/Dialogs";
 import Markdown from "../components/Markdown";
+import NoteDownloads from "../components/NoteDownloads";
 import { formatMinutes } from "../lib/planner";
 import { createStudyNote, noteFor, planHasMaterials, setTaskStatus } from "../lib/plans";
 import { navigate, routeQuery } from "../router";
@@ -161,9 +162,16 @@ export default function NotePage({ planId, topicId }: { planId: string; topicId:
             {note.topicName !== topic.name && <> · geschrieben für „{note.topicName}“</>}
           </p>
           <div className="row-between">
-            <button className="btn btn-ghost" onClick={rewrite} disabled={ai.state === "unavailable"}>
-              Neu schreiben
-            </button>
+            <div className="row-wrap">
+              <button className="btn btn-ghost" onClick={rewrite} disabled={ai.state === "unavailable"}>
+                Neu schreiben
+              </button>
+              <NoteDownloads
+                title={topic.name}
+                meta={[plan.title, "Lernzettel", new Date(note.createdAt).toLocaleDateString("de-DE")].join(" · ")}
+                content={note.content}
+              />
+            </div>
             {task && task.status === "open" ? (
               <button className="btn btn-primary" onClick={markLearned}>
                 Gelernt – abhaken ({formatMinutes(task.minutes)})

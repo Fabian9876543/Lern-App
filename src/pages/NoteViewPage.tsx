@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { NOTE_LENGTH_LABELS } from "../ai/prompts";
 import { confirmDialog, promptDialog } from "../components/Dialogs";
 import Markdown from "../components/Markdown";
+import NoteDownloads from "../components/NoteDownloads";
 import { cancelNoteJob, clearNoteJob, startMaterialNote, useNoteJob } from "../lib/materialNotes";
 import { navigate } from "../router";
 import { repo, useStore } from "../store/store";
@@ -15,7 +16,6 @@ export default function NoteViewPage({ noteId }: { noteId: string }) {
   const jobKey = `note:${noteId}`;
   const job = useNoteJob(jobKey);
   const [error, setError] = useState<string | null>(null);
-  const [saveError, setSaveError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!job?.done) return;
@@ -68,16 +68,6 @@ export default function NoteViewPage({ noteId }: { noteId: string }) {
   async function rename() {
     const title = await promptDialog("Lernzettel umbenennen", { label: "Titel", initial: note!.topicName });
     if (title) repo.updateNote(note!.id, { topicName: title });
-  }
-
-  async function download() {
-    setSaveError(null);
-    const name = note!.topicName.replace(/[\\/:*?"<>|]+/g, "-").trim() || "Lernzettel";
-    try {
-      await platform.saveFile(new Blob([`# ${note!.topicName}\n\n${note!.content}\n`], { type: "text/markdown" }), `${name}.md`);
-    } catch (e) {
-      setSaveError(platform.describeError(e));
-    }
   }
 
   async function remove() {
@@ -136,7 +126,6 @@ export default function NoteViewPage({ noteId }: { noteId: string }) {
           <p className="muted small">
             Von Claude aus deinem Material geschrieben · {new Date(note.createdAt).toLocaleDateString("de-DE")} · {note.model}
           </p>
-          {saveError && <p className="error-text">{saveError}</p>}
           <div className="row-between">
             <button
               className="btn btn-ghost"
@@ -146,9 +135,14 @@ export default function NoteViewPage({ noteId }: { noteId: string }) {
             >
               Neu schreiben
             </button>
-            <button className="btn btn-primary" onClick={download}>
-              Herunterladen (.md)
-            </button>
+            <NoteDownloads
+              title={note.topicName}
+              meta={[subject?.name, "Lernzettel", note.focus && `Schwerpunkt: ${note.focus}`, new Date(note.createdAt).toLocaleDateString("de-DE")]
+                .filter(Boolean)
+                .join(" · ")}
+              content={note.content}
+              pdfPrimary
+            />
           </div>
         </>
       )}

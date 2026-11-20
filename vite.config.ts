@@ -20,7 +20,8 @@ export default defineConfig(({ mode }) => {
     build: {
       outDir: artifact ? "dist-artifact" : "dist",
       emptyOutDir: true,
-      chunkSizeWarningLimit: 1600,
+      // Der PDF-Export (pdf-lib, fontkit, Schriften) ist ein großes, nur bei Bedarf geladenes Modul.
+      chunkSizeWarningLimit: 3000,
       // In claude.ai werden die KaTeX-Schriften direkt ins CSS eingebettet.
       assetsInlineLimit: artifact ? (file: string) => (file.endsWith(".woff2") ? true : undefined) : undefined,
     },

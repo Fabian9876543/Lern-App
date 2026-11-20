@@ -39,6 +39,10 @@ const impl: PlatformImpl = {
     } catch (e) {
       const code = (e as { code?: string })?.code;
       if (code === "declined") return;
+      if (code === "extension_not_enabled" || code === "rejected_extension") {
+        const ext = fileName.split(".").pop()?.toUpperCase() ?? "";
+        throw new Error(`${ext}-Dateien können in dieser Ansicht nicht gespeichert werden.`);
+      }
       throw new Error(`Die Datei konnte nicht gespeichert werden (${code ?? "Fehler"}).`);
     }
   },
