@@ -3,10 +3,14 @@ import { useEffect, useState } from "react";
 import { NOTE_LENGTH_LABELS } from "../ai/prompts";
 import { confirmDialog, promptDialog } from "../components/Dialogs";
 import Markdown from "../components/Markdown";
+import MaterialList from "../components/MaterialList";
+import MaterialPreview from "../components/MaterialPreview";
+import MaterialRow from "../components/MaterialRow";
 import NoteDownloads from "../components/NoteDownloads";
 import { cancelNoteJob, clearNoteJob, startMaterialNote, useNoteJob } from "../lib/materialNotes";
 import { navigate } from "../router";
 import { repo, useStore } from "../store/store";
+import type { Material } from "../types";
 
 /** Ein Lernzettel aus Material: lesen, neu schreiben, umbenennen, herunterladen, löschen. */
 export default function NoteViewPage({ noteId }: { noteId: string }) {
@@ -16,6 +20,7 @@ export default function NoteViewPage({ noteId }: { noteId: string }) {
   const jobKey = `note:${noteId}`;
   const job = useNoteJob(jobKey);
   const [error, setError] = useState<string | null>(null);
+  const [preview, setPreview] = useState<Material | null>(null);
 
   useEffect(() => {
     if (!job?.done) return;
@@ -95,12 +100,11 @@ export default function NoteViewPage({ noteId }: { noteId: string }) {
             </button>
           </div>
         </div>
-        <p className="muted small">
-          Aus {sources.length ? sources.map((m) => `„${m.name}“`).join(", ") : "Material, das inzwischen gelöscht ist"}
-          {missing > 0 && sources.length > 0 && ` (und ${missing} gelöschtem)`}
-          {note.focus && ` · Schwerpunkt: ${note.focus}`}
-          {note.length && ` · ${NOTE_LENGTH_LABELS[note.length].label}`}
-        </p>
+        {(note.focus || note.length) && (
+          <p className="muted small">
+            {[note.focus && `Schwerpunkt: ${note.focus}`, note.length && NOTE_LENGTH_LABELS[note.length].label].filter(Boolean).join(" · ")}
+          </p>
+        )}
       </div>
 
       {error && <div className="callout callout-error">{error}</div>}
@@ -146,6 +150,31 @@ export default function NoteViewPage({ noteId }: { noteId: string }) {
           </div>
         </>
       )}
+
+      {ids.length > 0 && (
+        <details className="card note-sources">
+          <summary>
+            <strong>Quellen</strong>
+            <span className="muted small">
+              {" · "}
+              {ids.length === 1 ? "aus 1 Datei" : `aus ${ids.length} Dateien`}
+              {missing > 0 && ` (${missing} inzwischen gelöscht)`}
+            </span>
+          </summary>
+          <div className="stack-sm note-sources-body">
+            <p className="muted small">Aus diesem Material hat Claude den Lernzettel geschrieben. Antippen zum Ansehen.</p>
+            {sources.length > 0 ? (
+              <MaterialList
+                materials={sources}
+                row={(m) => <MaterialRow key={m.id} material={m} onPreview={setPreview} actions={false} role={false} />}
+              />
+            ) : (
+              <p className="muted small">Das Material ist inzwischen gelöscht.</p>
+            )}
+          </div>
+        </details>
+      )}
+      {preview && <MaterialPreview material={preview} onClose={() => setPreview(null)} />}
     </div>
   );
 }

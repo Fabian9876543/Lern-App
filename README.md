@@ -33,7 +33,7 @@ Beide Varianten entstehen aus demselben Code (`src/targets/artifact` bzw. `src/t
 
 - Fächer mit beliebig vielen Materialien (PDF, Fotos/Bilder, Excel, Word, Textdateien oder eingefügter Text)
 - **Ganze Ordner hochladen:** per „Ordner hochladen“ oder einfach hineinziehen – mit allen Unterordnern. Die Ordner
-  bleiben als aufklappbare Gruppen erhalten und lassen sich als Ganzes für einen Test oder Lernplan auswählen, abwählen
+  bleiben als aufklappbare Gruppen erhalten (anfangs zugeklappt) und lassen sich als Ganzes für einen Test oder Lernplan auswählen, abwählen
   oder löschen. Die Rolle wird auch aus dem Ordnernamen erkannt („Lösungen/Scan 3.pdf“ → Lösungen). Systemdateien
   (.DS_Store, ~$-Sperrdateien …) werden ausgelassen; Formate, die die App nicht lesen kann (z. B. Word), werden mit einem
   Tipp genannt (z. B. PowerPoint → als PDF exportieren). Dateien, die nur in der Cloud liegen (OneDrive, iCloud), meldet die App, statt sie leer zu speichern.
@@ -89,6 +89,7 @@ Beide Varianten entstehen aus demselben Code (`src/targets/artifact` bzw. `src/t
   und den Umfang wählen (Spickzettel, normal, ausführlich). Claude schreibt den Lernzettel mit Überblick, einem
   Abschnitt pro Thema mit Fundstellen und Beispielen, typischen Fehlern und Selbstcheck. Er lässt sich umbenennen,
   neu schreiben, herunterladen (PDF oder Markdown) und löschen; alle Lernzettel eines Fachs stehen auf der Fachseite.
+  Woraus er erstellt wurde, steht zugeklappt unter „Quellen“ am Ende der Seite (nach Ordnern, zum Ansehen antippen).
 - **Lernzettel als PDF:** Jeder Lernzettel (aus Material oder aus dem Lernplan) lässt sich als A4-PDF herunterladen –
   mit echtem, markierbarem und durchsuchbarem Text, Formeln als Vektorgrafik, Tabellen, Listen und Code wie in der App,
   Titel, Fach und Datum oben und Seitenzahlen unten. Seitenumbrüche zerschneiden keine Zeilen, Formeln oder

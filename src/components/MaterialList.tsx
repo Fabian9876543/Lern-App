@@ -7,12 +7,9 @@ export interface MaterialSelection {
   setMany: (ids: string[], selected: boolean) => void;
 }
 
-/** Große Ordner starten zugeklappt. */
-const OPEN_UP_TO = 12;
-
 /**
  * Materialliste, gruppiert nach Ordnern: einzelne Dateien oben, darunter jeder
- * Ordner als aufklappbare Gruppe – auf Wunsch mit Auswahl des ganzen Ordners.
+ * Ordner als aufklappbare Gruppe (anfangs zugeklappt) – auf Wunsch mit Auswahl des ganzen Ordners.
  */
 export default function MaterialList({
   materials,
@@ -60,7 +57,7 @@ function FolderGroup({
   selection?: MaterialSelection;
   actions?: ReactNode;
 }) {
-  const [open, setOpen] = useState(items.length <= OPEN_UP_TO);
+  const [open, setOpen] = useState(false);
   const ids = items.map((m) => m.id);
   const chosen = selection ? ids.filter(selection.isSelected).length : 0;
   const label = formatFolder(folder);

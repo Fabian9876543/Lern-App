@@ -14,6 +14,7 @@ export default function MaterialRow({
   selectable,
   extra,
   actions = true,
+  role = true,
   trailing,
 }: {
   material: Material;
@@ -21,6 +22,8 @@ export default function MaterialRow({
   selectable?: { checked: boolean; onToggle: () => void };
   extra?: ReactNode;
   actions?: boolean;
+  /** Rolle zum Ändern anzeigen (in reinen Übersichten nicht). */
+  role?: boolean;
   /** Zusätzliche Knöpfe am Zeilenende. */
   trailing?: ReactNode;
 }) {
@@ -62,18 +65,20 @@ export default function MaterialRow({
           {extra}
         </span>
       </div>
-      <select
-        className={`select select-sm role-${m.role}`}
-        value={m.role}
-        aria-label={`Rolle von ${m.name}`}
-        onChange={(e) => repo.updateMaterial(m.id, { role: e.target.value as MaterialRole })}
-      >
-        {Object.entries(ROLE_LABELS).map(([value, label]) => (
-          <option key={value} value={value}>
-            {label}
-          </option>
-        ))}
-      </select>
+      {role && (
+        <select
+          className={`select select-sm role-${m.role}`}
+          value={m.role}
+          aria-label={`Rolle von ${m.name}`}
+          onChange={(e) => repo.updateMaterial(m.id, { role: e.target.value as MaterialRole })}
+        >
+          {Object.entries(ROLE_LABELS).map(([value, label]) => (
+            <option key={value} value={value}>
+              {label}
+            </option>
+          ))}
+        </select>
+      )}
       {actions && (
         <>
           <button className="btn btn-ghost btn-icon btn-sm" aria-label={`${m.name} umbenennen`} onClick={rename}>

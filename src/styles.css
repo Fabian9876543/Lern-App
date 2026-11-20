@@ -1955,3 +1955,27 @@ details.card[open] > summary {
 .note-downloads.end .error-text {
   text-align: right;
 }
+
+/* ---------- Quellen eines Lernzettels ---------- */
+
+.note-sources > summary {
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+}
+.note-sources > summary::-webkit-details-marker {
+  display: none;
+}
+.note-sources > summary::before {
+  content: "▸";
+  color: var(--muted);
+  width: 1em;
+}
+.note-sources[open] > summary::before {
+  content: "▾";
+}
+.note-sources-body {
+  margin-top: 0.75rem;
+}
