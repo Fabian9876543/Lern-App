@@ -103,6 +103,7 @@ export default function PlanPage({ planId }: { planId: string }) {
             `Claude schreibt eingescannte Seiten ab … ${p.pagesDone ?? 0} von ${p.pagesTotal ?? "?"}`}
           {p.phase === "analyzing" && `${generating.label} wird erstellt …`}
           {p.phase === "writing" && (p.questionsSoFar > 0 ? `${p.questionsSoFar} Fragen erstellt …` : "Fragen werden geschrieben …")}
+          {p.part && p.part > 1 && ` (Teil ${p.part})`}
         </h2>
         {p.phase === "transcribing" && (
           <p className="small">

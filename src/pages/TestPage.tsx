@@ -8,6 +8,7 @@ import QuestionEditor from "../components/QuestionEditor";
 import QuestionMeta from "../components/QuestionMeta";
 import { formatDate, startAttempt, summarize } from "../lib/attempts";
 import { newId } from "../lib/ids";
+import { splitTest } from "../lib/testParts";
 import { navigate } from "../router";
 import { repo, useStore } from "../store/store";
 import type { AttemptMode, Question } from "../types";
@@ -78,8 +79,9 @@ export default function TestPage({ testId }: { testId: string }) {
         materials,
         settings: test!.settings,
       });
-      repo.addTest(fresh);
-      navigate(`/test/${fresh.id}`);
+      const parts = splitTest(fresh, newId);
+      parts.forEach((t) => repo.addTest(t));
+      navigate(`/test/${parts[0].id}`);
     } catch (e) {
       setError(platform.describeError(e));
     } finally {

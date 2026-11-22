@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from "react";
-import { coerceGeneratedTest, coerceGrading, coerceMaterialName, coerceTopicAnalysis } from "../../ai/coerce";
+import { coerceGrading, coerceMaterialName, coerceTopicAnalysis } from "../../ai/coerce";
 import { countJsonKey, countQuestions, describeCorrectAnswer, normalizeQuestions } from "../../ai/normalize";
+import { CONTINUATION_RESERVE, generateInParts, partsNote } from "../../ai/rounds";
 import {
   GRADING_JSON_FORMAT,
   GRADING_SYSTEM_PROMPT,
@@ -254,8 +255,10 @@ async function promptWithMaterials(
   prepared: PreparedMaterials,
   build: (section: string) => string,
   strategy: ExcerptStrategy,
-): Promise<{ prompt: string; note: string | null }> {
-  if (prepared.sources.length === 0) return { prompt: build(""), note: null };
+  /** Platz, der für spätere Zusätze frei bleiben muss (z. B. Fortsetzungs-Anweisungen) */
+  reserve = 0,
+): Promise<{ prompt: string; section: string; note: string | null }> {
+  if (prepared.sources.length === 0) return { prompt: build(""), section: "", note: null };
   const limits = await sample.limits().catch(() => null);
   const maxBytes = limits?.maxPromptBytes ?? 262_144;
   const imageLine = prepared.images.length
@@ -265,9 +268,10 @@ async function promptWithMaterials(
     `<materialien>\n${note ? `Hinweis: ${note} „[…]“ markiert ausgelassene Stellen.\n\n` : ""}${parts
       .map((p) => wrapMaterial(p.label, p.body))
       .join("\n\n")}\n</materialien>\n${imageLine}\n`;
-  const budget = maxBytes - byteLength(build(section([], null))) - SECTION_RESERVE;
+  const budget = maxBytes - byteLength(build(section([], null))) - SECTION_RESERVE - reserve;
   const excerpt = makeExcerpt(prepared.sources, budget, strategy);
-  return { prompt: build(section(excerpt.parts, excerpt.note)), note: excerpt.note };
+  const text = section(excerpt.parts, excerpt.note);
+  return { prompt: build(text), section: text, note: excerpt.note };
 }
 
 /** Wie der Auszug für einen Test gewählt wird. */
@@ -291,29 +295,32 @@ export async function generateTest(params: GenerateParams): Promise<Test> {
 
   onProgress?.({ phase: "preparing", questionsSoFar: 0 });
   const prepared = await prepareMaterials(sample, materials, { signal, onProgress });
-  const { prompt, note } = await promptWithMaterials(
+  const head = `${generationSystemPrompt(hasMaterials)}\n\n${TEST_JSON_FORMAT}\n\n`;
+  const task = buildTaskInstruction(settings, { hasMaterials, subjectName: params.subjectName });
+  const { section, note } = await promptWithMaterials(
     sample,
     prepared,
-    (section) => `${generationSystemPrompt(hasMaterials)}
-
-${TEST_JSON_FORMAT}
-
-${section}${buildTaskInstruction(settings, { hasMaterials, subjectName: params.subjectName })}`,
+    (section) => `${head}${section}${task}`,
     testStrategy(settings),
+    CONTINUATION_RESERVE,
   );
-  await checkLimits(sample, prompt, prepared.images.length);
+  const promptFor = (instruction: string) => `${head}${section}${task}${instruction ? `\n\n${instruction}` : ""}`;
+  await checkLimits(sample, promptFor(""), prepared.images.length);
 
-  onProgress?.({ phase: "analyzing", questionsSoFar: 0 });
-  const raw = await sample.json(prompt, {
-    modelTier: tier,
-    images: prepared.images.length ? prepared.images : undefined,
-    cache: false,
-    signal,
-    onText: ({ text }) => onProgress?.({ phase: "writing", questionsSoFar: countQuestions(text) }),
-  });
+  // Viele Aufgaben holt die App in mehreren Teilen ab (eine Antwort hat eine Längen- und Zeitgrenze).
+  const result = await generateInParts(settings, async (instruction, { part, done }) => {
+    onProgress?.(part === 1 ? { phase: "analyzing", questionsSoFar: 0 } : { phase: "writing", questionsSoFar: done, part });
+    const reply = await sample(promptFor(instruction), {
+      modelTier: tier,
+      images: prepared.images.length ? prepared.images : undefined,
+      cache: false,
+      signal,
+      onText: ({ text }) => onProgress?.({ phase: "writing", questionsSoFar: done + countQuestions(text), part }),
+    });
+    return { text: reply.text, truncated: reply.truncated };
+  }, { signal, describeError });
 
-  const parsed = coerceGeneratedTest(raw);
-  const questions = normalizeQuestions(parsed.questions, {
+  const questions = normalizeQuestions(result.questions, {
     forceAiSolutions: settings.mode === "generated",
     makeId: newId,
   });
@@ -327,12 +334,12 @@ ${section}${buildTaskInstruction(settings, { hasMaterials, subjectName: params.s
   return {
     id: newId(),
     subjectId: params.subjectId,
-    title: parsed.title || "Neuer Test",
+    title: result.title || "Neuer Test",
     mode: settings.mode,
     materialIds: materials.map((m) => m.id),
     settings,
     questions,
-    notes: [note ? `Hinweis der App: ${note}` : "", parsed.notes].filter(Boolean).join("\n\n"),
+    notes: [note ? `Hinweis der App: ${note}` : "", partsNote(result), result.notes].filter(Boolean).join("\n\n"),
     createdAt: Date.now(),
     model: `claude.ai – ${TIERS.find((t) => t.id === tier)?.label ?? tier}`,
   };
@@ -518,7 +525,7 @@ const ERROR_TEXT: Record<string, string> = {
   image_rejected: "Ein Bild konnte nicht verarbeitet werden. Bitte als JPEG oder PNG hochladen.",
   refused: "Claude hat die Anfrage abgelehnt. Prüfe, ob die richtigen Materialien ausgewählt sind.",
   empty_completion: "Claude hat keine Antwort geliefert. Bitte erneut versuchen.",
-  invalid_json: "Die Antwort von Claude war unvollständig. Bitte erneut versuchen – oder weniger Fragen auf einmal.",
+  invalid_json: "Die Antwort von Claude war unvollständig oder nicht lesbar. Bitte erneut versuchen.",
 };
 
 export function describeError(error: unknown): string {

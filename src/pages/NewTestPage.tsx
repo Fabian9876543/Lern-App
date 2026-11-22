@@ -6,7 +6,9 @@ import MaterialPreview from "../components/MaterialPreview";
 import MaterialRow from "../components/MaterialRow";
 import MaterialUpload from "../components/MaterialUpload";
 import { formatBytes } from "../lib/files";
+import { newId } from "../lib/ids";
 import { splitMaterials } from "../lib/materialNames";
+import { splitTest } from "../lib/testParts";
 import { IS_ARTIFACT } from "../platform";
 import { navigate, routeQuery } from "../router";
 import { repo, useStore } from "../store/store";
@@ -130,8 +132,10 @@ export default function NewTestPage({ subjectId }: { subjectId: string }) {
         signal: controller.signal,
         onProgress: (p) => mounted.current && setProgress(p),
       });
-      repo.addTest(test);
-      if (mounted.current) navigate(`/test/${test.id}`, { replace: true });
+      // Sehr viele Aufgaben passen nicht in einen Speichereintrag – dann wird der Test aufgeteilt.
+      const parts = splitTest(test, newId);
+      parts.forEach((t) => repo.addTest(t));
+      if (mounted.current) navigate(`/test/${parts[0].id}`, { replace: true });
     } catch (e) {
       if (mounted.current) {
         setError(controller.signal.aborted ? null : platform.describeError(e));
@@ -153,7 +157,14 @@ export default function NewTestPage({ subjectId }: { subjectId: string }) {
           {progress.phase === "analyzing" && "Claude liest dein Material …"}
           {progress.phase === "writing" &&
             (progress.questionsSoFar > 0 ? `${progress.questionsSoFar} Fragen erstellt …` : "Fragen werden geschrieben …")}
+          {progress.part && progress.part > 1 && ` (Teil ${progress.part})`}
         </h2>
+        {progress.part && progress.part > 1 && (
+          <p className="small">
+            Das sind mehr Aufgaben, als Claude in einer Antwort schreiben kann. Claude macht deshalb in mehreren Teilen
+            weiter – die schon fertigen Aufgaben bleiben erhalten.
+          </p>
+        )}
         {progress.phase === "transcribing" && (
           <p className="small">
             Das sind mehr Fotos bzw. eingescannte Seiten, als Claude auf einmal ansehen kann. Sie werden deshalb einmal

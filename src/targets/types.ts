@@ -11,6 +11,8 @@ export interface GenerationProgress {
   /** Beim Abschreiben eingescannter Seiten: erledigt / insgesamt. */
   pagesDone?: number;
   pagesTotal?: number;
+  /** Bei sehr vielen Aufgaben: der wievielte Teil gerade abgeholt wird (ab 2). */
+  part?: number;
 }
 
 export interface GenerateParams {

@@ -72,6 +72,11 @@ Beide Varianten entstehen aus demselben Code (`src/targets/artifact` bzw. `src/t
   ohne Thema zufällig verteilte Abschnitte (jede neue Variante nimmt andere) und für „Meine Aufgaben abfragen“ von
   jeder Datei den Anfang, damit Aufgaben und Lösungen zusammenpassen. Ein Hinweis beim Test bzw. Plan sagt, wie
   groß der Auszug war.
+- **Sehr viele Aufgaben auf einmal:** Eine einzelne Antwort von Claude hat eine Längen- und Zeitgrenze. Bei vielen
+  Aufgaben (z. B. „Meine Aufgaben abfragen“ mit allen Übungsblättern) holt die App sie deshalb in mehreren Teilen ab –
+  höchstens 25 pro Antwort; jede weitere Anfrage nennt die schon übernommenen Aufgaben, und Claude macht mit der
+  nächsten weiter. Bricht eine Antwort doch mittendrin ab, bleiben alle fertigen Aufgaben erhalten. Wird der Test
+  größer, als ein Eintrag im claude.ai-Speicher sein darf, wird er in gleich große Tests „(Teil 1 von N)“ aufgeteilt.
 - Formeln werden mit LaTeX/KaTeX schön dargestellt
 - Ergebnisse mit Auswertung nach Thema, Verlauf pro Test und **„Fehler wiederholen“**
 - „Neue Variante“: zum selben Material einen neuen Test mit anderen Aufgaben erzeugen

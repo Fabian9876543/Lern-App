@@ -27,6 +27,11 @@ export const GeneratedTestSchema = z.object({
   questions: z.array(GeneratedQuestionSchema),
 });
 
+/** Ein Teil der Aufgaben, wenn ein Test in mehreren Anfragen abgeholt wird. */
+export const GeneratedTestPartSchema = GeneratedTestSchema.extend({
+  more: z.boolean().describe("true, wenn noch weitere Aufgaben folgen, die in dieser Antwort nicht mehr übernommen wurden"),
+});
+
 export type GeneratedQuestion = z.infer<typeof GeneratedQuestionSchema>;
 export type GeneratedTest = z.infer<typeof GeneratedTestSchema>;
 
