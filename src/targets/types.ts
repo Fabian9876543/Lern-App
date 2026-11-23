@@ -95,6 +95,26 @@ export interface ExamAnalysisParams {
   onProgress?: (p: GenerationProgress) => void;
 }
 
+export interface NoteFixParams {
+  subjectName: string;
+  noteTitle: string;
+  noteContent: string;
+  quote: string;
+  /** Was laut der lernenden Person falsch ist (optional). */
+  request: string;
+  /** Bisherige Erklärungen und Nachfragen zur Stelle. */
+  history: { role: "user" | "assistant"; content: string }[];
+  materials: Material[];
+  signal?: AbortSignal;
+}
+
+export interface NoteFix {
+  /** Zu ersetzender Ausschnitt; leer, wenn die Stelle stimmt. */
+  old: string;
+  replacement: string;
+  reason: string;
+}
+
 export interface ExplainParams {
   subjectName: string;
   noteTitle: string;
@@ -148,6 +168,8 @@ export interface PlatformImpl {
   analyzeExam(params: ExamAnalysisParams): Promise<{ analysis: GeneratedExamAnalysis; model: string }>;
   /** Erklärt eine markierte Stelle eines Lernzettels (und beantwortet Nachfragen dazu). */
   explainPassage(params: ExplainParams): Promise<ExplainResult>;
+  /** Schlägt eine Korrektur für eine markierte Stelle im Lernzettel vor. */
+  fixNotePassage(params: NoteFixParams): Promise<NoteFix>;
   /** Kann Claude beim Erklären im Internet suchen? */
   canSearchWeb: boolean;
   /** Schlägt für ein Material mit nichtssagendem Dateinamen Name und Rolle vor. */

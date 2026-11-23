@@ -599,3 +599,41 @@ export function buildExamAnalysisInstruction(params: { subjectName: string; rema
     .filter(Boolean)
     .join("\n\n");
 }
+
+// ---------- Stelle im Lernzettel korrigieren ----------
+
+export const NOTE_FIX_SYSTEM_PROMPT = `Du korrigierst einen Lernzettel (Markdown mit LaTeX), den eine Lern-App anzeigt. Die lernende Person hat eine Stelle markiert, die falsch, ungenau oder missverständlich ist.
+
+- Prüf die Stelle – anhand des Materials, falls beigefügt, sonst mit deinem Fachwissen. Berücksichtige, was die Person dazu schreibt, aber übernimm nichts Falsches.
+- Ändere so wenig wie möglich: nur, was nötig ist, damit die Stelle stimmt und verständlich ist. Behalte Stil, Formatierung, Begriffe und Schreibweisen des Lernzettels bei.
+- "old": ein zusammenhängender Ausschnitt aus dem Markdown-Text des Lernzettels, Zeichen für Zeichen kopiert (mit Formatierungszeichen und LaTeX), der ersetzt wird – am besten ganze Sätze, Listenpunkte oder Tabellenzeilen rund um die markierte Stelle.
+- "new": der Ersatz für diesen Ausschnitt.
+- "reason": 1–2 Sätze an die Person („du“): was falsch war bzw. was geändert wurde.
+- Stimmt die Stelle schon, lass "old" und "new" leer und erklär in "reason" kurz, warum sie richtig ist.
+
+${ACCOUNTING_RULES}`;
+
+export const NOTE_FIX_JSON_FORMAT = `Antworte ausschließlich mit einem JSON-Objekt: {"old": "Ausschnitt aus dem Lernzettel", "new": "Ersatz", "reason": "Was falsch war"}`;
+
+export function buildNoteFixTask(params: {
+  subjectName: string;
+  noteTitle: string;
+  noteContent: string;
+  quote: string;
+  request: string;
+  history: { role: "user" | "assistant"; content: string }[];
+}): string {
+  return [
+    params.subjectName ? `Fach: „${params.subjectName}“` : "",
+    `Lernzettel „${params.noteTitle}“ (Markdown):\n<lernzettel>\n${params.noteContent.trim()}\n</lernzettel>`,
+    `Markierte Stelle (so, wie sie angezeigt wird):\n<markiert>\n${params.quote.trim()}\n</markiert>`,
+    params.history.length
+      ? `Bisheriges Gespräch zu dieser Stelle:\n${params.history.map((m) => (m.role === "assistant" ? `Claude: ${m.content.trim()}` : `Lernende Person: ${m.content.trim()}`)).join("\n\n")}`
+      : "",
+    params.request.trim()
+      ? `Was laut der lernenden Person falsch ist: ${params.request.trim()}`
+      : "Die lernende Person meint, dass die Stelle falsch oder missverständlich ist.",
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+}

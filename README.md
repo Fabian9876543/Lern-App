@@ -132,6 +132,13 @@ Beide Varianten entstehen aus demselben Code (`src/targets/artifact` bzw. `src/t
   und gehen in Erklärung und Tipp auf genau diese Fehler ein. Die Übungen stehen mit ihren Ergebnissen bei der Analyse
   und im Fach. Auswerten und Erstellen laufen weiter, auch wenn man die Seite verlässt. Korrekturen auf
   eingescannten Seiten werden beim Abschreiben gekennzeichnet mit übernommen.
+- **Lernzettel ändern:** „Bearbeiten“ öffnet den Lernzettel als Text (Markdown, Formeln in $…$) mit Vorschau; nach dem
+  Speichern steht „von dir bearbeitet“ dabei. Markiert man eine falsche Stelle, öffnet „Ändern“ in der Leiste den
+  Editor direkt an dieser Stelle. Verlässt man die Seite mit ungespeicherten Änderungen, werden sie beim nächsten Mal
+  zum Weiterbearbeiten angeboten. Bequemer per Claude: Im Erklärungsfenster einer markierten Stelle „Stimmt hier etwas
+  nicht? Im Lernzettel korrigieren“ – optional dazuschreiben, was falsch ist. Claude prüft die Stelle (mit dem
+  Material), schlägt eine möglichst kleine Korrektur vor und zeigt Vorher/Nachher; erst „Übernehmen“ ändert den
+  Lernzettel. Stimmt die Stelle, sagt Claude das. „Neu schreiben“ warnt, dass eigene Änderungen verloren gehen.
 - **Stellen im Lernzettel erklären lassen:** Text markieren (am Handy lange drücken), dann unten „Bin unsicher“ oder
   „Weiß ich nicht mehr“ wählen. Claude erklärt genau diese Stelle – kurz aufgefrischt bzw. von Grund auf mit Beispiel
   und Merkhilfe –, zuerst aus dem Material des Lernzettels (mit Fundstelle), sonst aus seinem Fachwissen; in der

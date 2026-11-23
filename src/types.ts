@@ -228,6 +228,8 @@ export interface StudyNote {
   fromMaterial: boolean;
   model: string;
   createdAt: number;
+  /** Zuletzt von der lernenden Person geändert (selbst oder per Korrektur von Claude). */
+  editedAt?: number;
 }
 
 // ---------- Markierungen im Lernzettel ----------
@@ -268,6 +270,8 @@ export interface NoteMark {
   /** Gespräch zur Stelle: Erklärung, Nachfragen, weitere Antworten. */
   messages: MarkMessage[];
   createdAt: number;
+  /** Die Stelle wurde im Lernzettel korrigiert. */
+  fixedAt?: number;
 }
 
 // ---------- Klausur-Analyse ----------

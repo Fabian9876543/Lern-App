@@ -3,7 +3,7 @@ import { useEffect, useReducer, useRef, useState } from "react";
 import { confirmDialog } from "../components/Dialogs";
 import Markdown from "../components/Markdown";
 import NoteDownloads from "../components/NoteDownloads";
-import { MarkableNote } from "../components/NoteMarks";
+import EditableNote from "../components/EditableNote";
 import { marksAppendix } from "../lib/noteMarks";
 import { formatMinutes } from "../lib/planner";
 import { createStudyNote, noteFor, planHasMaterials, setTaskStatus } from "../lib/plans";
@@ -88,7 +88,7 @@ export default function NotePage({ planId, topicId }: { planId: string; topicId:
   }
 
   async function rewrite() {
-    const ok = await confirmDialog("Claude schreibt den Lernzettel neu; der jetzige wird ersetzt.", {
+    const ok = await confirmDialog(`Claude schreibt den Lernzettel neu; der jetzige wird ersetzt.${note?.editedAt ? " Deine eigenen Änderungen gehen dabei verloren." : ""}`, {
       title: "Lernzettel neu schreiben?",
       confirmLabel: "Neu schreiben",
     });
@@ -153,7 +153,7 @@ export default function NotePage({ planId, topicId }: { planId: string; topicId:
               </button>
             </div>
           )}
-          <MarkableNote note={note} hasMaterials={withMaterial}>
+          <EditableNote note={note} hasMaterials={withMaterial}>
             {(marks) => (
               <>
                 <p className="muted small">
@@ -162,6 +162,7 @@ export default function NotePage({ planId, topicId }: { planId: string; topicId:
                     : "Von Claude aus seinem Fachwissen geschrieben, ohne dein Material – kann vom Stoff deiner Veranstaltung abweichen."}{" "}
                   {new Date(note.createdAt).toLocaleDateString("de-DE")} · {note.model}
                   {note.topicName !== topic.name && <> · geschrieben für „{note.topicName}“</>}
+                  {note.editedAt && <> · von dir bearbeitet am {new Date(note.editedAt).toLocaleDateString("de-DE")}</>}
                 </p>
                 <div className="row-between">
                   <div className="row-wrap">
@@ -187,7 +188,7 @@ export default function NotePage({ planId, topicId }: { planId: string; topicId:
                 </div>
               </>
             )}
-          </MarkableNote>
+          </EditableNote>
         </>
       ) : (
         <section className="card stack-sm">

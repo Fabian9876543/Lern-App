@@ -1685,18 +1685,23 @@ details.card[open] > summary {
 .mark-bar-inner {
   max-width: 860px;
   margin: 0 auto;
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-areas: "text actions tools";
   align-items: center;
   gap: 0.5rem 0.75rem;
-  position: relative;
+}
+@media (max-width: 640px) {
+  .mark-bar-inner {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas: "text tools" "actions actions";
+  }
 }
 .mark-bar-text {
+  grid-area: text;
   display: flex;
   flex-direction: column;
   min-width: 0;
-  flex: 1 1 16rem;
-  padding-right: 2.2rem;
 }
 .mark-bar-label {
   font-weight: 600;
@@ -1720,18 +1725,26 @@ details.card[open] > summary {
   content: "“";
 }
 .mark-bar-actions {
+  grid-area: actions;
   display: flex;
   gap: 0.5rem;
   flex-wrap: wrap;
 }
 .mark-bar-warn {
+  grid-area: actions;
   color: var(--partial-text);
   margin: 0;
 }
-.mark-bar-close {
-  position: absolute;
-  top: -0.2rem;
-  right: -0.3rem;
+.mark-bar-tools {
+  grid-area: tools;
+  align-self: start;
+  display: flex;
+  align-items: center;
+  gap: 0.15rem;
+  margin-right: -0.3rem;
+}
+.mark-bar-tools .btn {
+  gap: 0.3rem;
 }
 .mark-btn {
   min-height: 2.5rem;
@@ -2440,4 +2453,106 @@ body:has(.mark-bar) .container {
 }
 .task-result-body {
   padding: 0 0.8rem 0.8rem;
+}
+
+/* ---------- Lernzettel bearbeiten ---------- */
+
+.note-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 0.75rem;
+}
+.note-toolbar .mark-hint {
+  flex: 1 1 15rem;
+}
+.note-edit-btn {
+  flex: none;
+  gap: 0.35rem;
+  margin-left: auto;
+}
+.tabs {
+  display: inline-flex;
+  background: var(--surface-2);
+  border-radius: var(--radius-sm);
+  padding: 0.2rem;
+  gap: 0.2rem;
+}
+.tab {
+  font: inherit;
+  font-weight: 600;
+  font-size: 0.9rem;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  padding: 0.35rem 0.85rem;
+  border-radius: calc(var(--radius-sm) - 2px);
+  cursor: pointer;
+}
+.tab.active {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow);
+}
+.note-editor-text {
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  /* mindestens 16 px, sonst vergrößert das iPhone beim Antippen die Seite */
+  font-size: max(16px, 0.9rem);
+  line-height: 1.55;
+  min-height: 16rem;
+  resize: vertical;
+}
+.note-editor-preview {
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.75rem 1rem;
+  max-height: 70vh;
+  overflow-y: auto;
+}
+.mark-fix {
+  border-top: 1px solid var(--border);
+  padding-top: 0.9rem;
+}
+.callout.mark-fix {
+  border-top: 1px solid color-mix(in srgb, var(--primary) 25%, transparent);
+}
+.callout-ok.mark-fix {
+  border-top-color: color-mix(in srgb, var(--correct) 35%, transparent);
+}
+.mark-fix .btn {
+  gap: 0.35rem;
+}
+.mark-fix-diff {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.6rem;
+}
+@media (max-width: 560px) {
+  .mark-fix-diff {
+    grid-template-columns: 1fr;
+  }
+}
+.mark-fix-old,
+.mark-fix-new {
+  border-radius: var(--radius-sm);
+  padding: 0.5rem 0.75rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.mark-fix-old {
+  background: var(--wrong-soft);
+}
+.mark-fix-old .study-note {
+  text-decoration: line-through;
+  text-decoration-color: color-mix(in srgb, var(--wrong) 60%, transparent);
+}
+.mark-fix-new {
+  background: var(--correct-soft);
+}
+.mark-fix-diff .study-note > :first-child {
+  margin-top: 0.2rem;
+}
+.mark-fix-diff .study-note > :last-child {
+  margin-bottom: 0;
 }

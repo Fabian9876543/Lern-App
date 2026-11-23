@@ -7,6 +7,7 @@ import { analyzeExam } from "./analyzeExam";
 import { analyzeTopics } from "./analyzeTopics";
 import { describeError } from "./client";
 import { explainPassage } from "./explain";
+import { fixNotePassage } from "./fixNote";
 import { generateTest } from "./generateTest";
 import { gradeWithAi } from "./gradeAnswer";
 import { createMaterialNote, createStudyNote } from "./studyNote";
@@ -27,6 +28,7 @@ const impl: PlatformImpl = {
   createMaterialNote,
   analyzeExam,
   explainPassage,
+  fixNotePassage,
   canSearchWeb: true,
   suggestMaterialName,
   describeError,

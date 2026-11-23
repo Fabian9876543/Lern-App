@@ -183,3 +183,9 @@ export function coerceExamAnalysis(raw: unknown): GeneratedExamAnalysis {
     notes: str(obj.notes).trim(),
   };
 }
+
+/** Korrekturvorschlag für eine Stelle im Lernzettel. */
+export function coerceNoteFix(raw: unknown): { old: string; new: string; reason: string } {
+  const obj = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+  return { old: str(obj.old), new: str(obj.new ?? obj.replacement), reason: str(obj.reason).trim() };
+}

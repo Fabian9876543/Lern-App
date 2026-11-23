@@ -7,6 +7,7 @@ import {
   clearExplainError,
   marksOf,
   needsAnswer,
+  noteMaterials,
   removeMark,
   startExplain,
   useExplainJob,
@@ -21,7 +22,9 @@ import {
   makeAnchor,
   streamingText,
 } from "../lib/noteMarks";
-import { useStore } from "../store/store";
+import { applyFix, findInSource } from "../lib/noteEdit";
+import { getState, repo, useStore } from "../store/store";
+import type { NoteFix } from "../targets/types";
 import type { MarkAnchor, MarkLevel, NoteMark, StudyNote } from "../types";
 import Markdown from "./Markdown";
 import Modal from "./Modal";
@@ -51,11 +54,14 @@ const HIGHLIGHT_NAMES: Record<MarkLevel, string> = { unsure: "lern-mark-unsure",
 export function MarkableNote({
   note,
   hasMaterials,
+  onEdit,
   children,
 }: {
   note: StudyNote;
   /** Gibt es Material zum Lernzettel? (nur für den Hinweistext) */
   hasMaterials: boolean;
+  /** Lernzettel bearbeiten – optional an einer bestimmten (markierten) Stelle. */
+  onEdit?: (quote?: string) => void;
   /** Steht zwischen Lernzettel und markierten Stellen; als Funktion bekommt es die Markierungen in Textreihenfolge. */
   children?: ReactNode | ((ordered: NoteMark[]) => ReactNode);
 }) {
@@ -163,14 +169,29 @@ export function MarkableNote({
 
   const source = hasMaterials ? "aus deinem Material" : "aus seinem Fachwissen";
 
+  function edit() {
+    const quote = candidate?.quote;
+    dismiss();
+    onEdit?.(quote);
+  }
+
   return (
     <>
-      {marks.length === 0 && (
-        <p className="muted small mark-hint">
-          <MarkerIcon /> Markiere eine Stelle, die du nicht mehr (genau) weißt – Claude erklärt sie dir {source}
-          {platform.canSearchWeb ? " und sucht bei Bedarf im Internet" : ""}.
-        </p>
-      )}
+      <div className="note-toolbar">
+        {marks.length === 0 ? (
+          <p className="muted small mark-hint">
+            <MarkerIcon /> Markiere eine Stelle, die du nicht mehr (genau) weißt – Claude erklärt sie dir {source}
+            {platform.canSearchWeb ? " und sucht bei Bedarf im Internet" : ""}.
+          </p>
+        ) : (
+          <span />
+        )}
+        {onEdit && (
+          <button className="btn btn-ghost btn-sm note-edit-btn" onClick={() => onEdit()}>
+            <PencilIcon /> Bearbeiten
+          </button>
+        )}
+      </div>
       <article className="card">
         <div
           ref={rootRef}
@@ -193,6 +214,7 @@ export function MarkableNote({
           candidate={candidate}
           onMark={mark}
           onDismiss={dismiss}
+          onEdit={onEdit ? edit : undefined}
           onPointerDown={() => {
             barBusy.current = true;
             window.setTimeout(() => {
@@ -203,8 +225,28 @@ export function MarkableNote({
           }}
         />
       )}
-      {openId && <MarkPanel markId={openId} onClose={() => setOpenId(null)} />}
+      {openId && (
+        <MarkPanel
+          markId={openId}
+          onClose={() => setOpenId(null)}
+          onEdit={
+            onEdit &&
+            ((quote) => {
+              setOpenId(null);
+              onEdit(quote);
+            })
+          }
+        />
+      )}
     </>
+  );
+}
+
+function PencilIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
+      <path d="M4 20h4L19 9l-4-4L4 16v4zM14 6l4 4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
   );
 }
 
@@ -237,11 +279,13 @@ function SelectionBar({
   candidate,
   onMark,
   onDismiss,
+  onEdit,
   onPointerDown,
 }: {
   candidate: Candidate;
   onMark: (level: MarkLevel) => void;
   onDismiss: () => void;
+  onEdit?: () => void;
   onPointerDown: () => void;
 }) {
   return (
@@ -253,7 +297,7 @@ function SelectionBar({
       // Klick auf die Knöpfe soll die Auswahl nicht aufheben (Desktop).
       onMouseDown={(e) => e.preventDefault()}
     >
-      <div className="mark-bar-inner">
+      <div className={`mark-bar-inner ${onEdit ? "with-edit" : ""}`}>
         <div className="mark-bar-text">
           <span className="mark-bar-label">Diese Stelle erklären lassen</span>
           <Markdown className="mark-bar-quote">{inlineQuote(candidate.quote)}</Markdown>
@@ -270,9 +314,16 @@ function SelectionBar({
             </button>
           </div>
         )}
-        <button className="btn btn-ghost btn-icon btn-sm mark-bar-close" onClick={onDismiss} aria-label="Nicht markieren">
-          ✕
-        </button>
+        <div className="mark-bar-tools">
+          {onEdit && (
+            <button className="btn btn-ghost btn-sm" onClick={onEdit} title="Diese Stelle im Lernzettel ändern">
+              <PencilIcon /> Ändern
+            </button>
+          )}
+          <button className="btn btn-ghost btn-icon btn-sm" onClick={onDismiss} aria-label="Nicht markieren">
+            ✕
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -314,7 +365,7 @@ function MarkListItem({ mark, inText, onOpen }: { mark: NoteMark; inText: boolea
         <Markdown className="mark-item-quote">{inlineQuote(mark.quote)}</Markdown>
         <span className="mark-item-meta">
           {MARK_LEVELS[mark.level].short} · {status}
-          {!inText && " · steht so nicht mehr im Lernzettel"}
+          {mark.fixedAt ? " · im Lernzettel korrigiert" : !inText && " · steht so nicht mehr im Lernzettel"}
         </span>
       </button>
     </li>
@@ -332,7 +383,7 @@ const FOLLOW_UPS = [
   },
 ];
 
-function MarkPanel({ markId, onClose }: { markId: string; onClose: () => void }) {
+function MarkPanel({ markId, onClose, onEdit }: { markId: string; onClose: () => void; onEdit?: (quote: string) => void }) {
   const mark = useStore().marks.find((m) => m.id === markId);
   const job = useExplainJob(markId);
   const ai = platform.useAiStatus();
@@ -501,8 +552,170 @@ function MarkPanel({ markId, onClose }: { markId: string; onClose: () => void })
             </form>
           </div>
         ))}
+      {!running && <FixSection mark={mark} onEdit={onEdit} />}
       <div ref={endRef} />
     </Modal>
+  );
+}
+
+// ---------- Stelle im Lernzettel korrigieren ----------
+
+type FixPhase = "idle" | "asking" | "running" | "proposal" | "done";
+
+function FixSection({ mark, onEdit }: { mark: NoteMark; onEdit?: (quote: string) => void }) {
+  const store = useStore();
+  const note = store.notes.find((n) => n.id === mark.noteId);
+  const ai = platform.useAiStatus();
+  const [phase, setPhase] = useState<FixPhase>(mark.fixedAt ? "done" : "idle");
+  const [request, setRequest] = useState("");
+  const [fix, setFix] = useState<NoteFix | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const controller = useRef<AbortController | null>(null);
+  useEffect(() => () => controller.current?.abort(), []);
+  if (!note) return null;
+
+  async function propose() {
+    setError(null);
+    setPhase("running");
+    const c = new AbortController();
+    controller.current = c;
+    try {
+      const result = await platform.fixNotePassage({
+        subjectName: store.subjects.find((x) => x.id === note!.subjectId)?.name ?? "",
+        noteTitle: note!.topicName,
+        noteContent: note!.content,
+        quote: mark.quote,
+        request,
+        history: mark.messages.map((m) => ({ role: m.role, content: m.content })),
+        materials: noteMaterials(note!),
+        signal: c.signal,
+      });
+      if (c.signal.aborted) return;
+      setFix(result);
+      setPhase("proposal");
+    } catch (e) {
+      if (c.signal.aborted) return;
+      setError(platform.describeError(e));
+      setPhase("asking");
+    }
+  }
+
+  function accept() {
+    const current = getState().notes.find((n) => n.id === mark.noteId);
+    if (!current || !fix) return;
+    const next = applyFix(current.content, fix.old, fix.replacement, findInSource(current.content, mark.quote)?.start);
+    if (next === null) {
+      setError("Claude hat die Stelle im Text nicht genau getroffen. Ändere sie bitte selbst.");
+      return;
+    }
+    repo.updateNote(current.id, { content: next, editedAt: Date.now() });
+    repo.updateMark(mark.id, (m) => ({ ...m, fixedAt: Date.now() }));
+    setPhase("done");
+  }
+
+  const selfEdit = onEdit && (
+    <button className="btn btn-ghost btn-sm" onClick={() => onEdit(mark.quote)}>
+      Selbst ändern
+    </button>
+  );
+
+  if (phase === "done") {
+    return <div className="callout callout-ok mark-fix">✓ Diese Stelle ist im Lernzettel korrigiert.</div>;
+  }
+  if (phase === "idle") {
+    return (
+      <div className="mark-fix">
+        <button className="btn btn-ghost btn-sm" onClick={() => setPhase("asking")}>
+          <PencilIcon /> Stimmt hier etwas nicht? Im Lernzettel korrigieren
+        </button>
+      </div>
+    );
+  }
+  if (phase === "running") {
+    return (
+      <div className="mark-fix practice-progress" aria-live="polite" aria-busy="true">
+        <div className="spinner spinner-sm" />
+        <span className="small">Claude prüft die Stelle und schlägt eine Korrektur vor …</span>
+        <button
+          className="btn btn-ghost btn-sm"
+          onClick={() => {
+            controller.current?.abort();
+            setPhase("asking");
+          }}
+        >
+          Abbrechen
+        </button>
+      </div>
+    );
+  }
+  if (phase === "asking") {
+    return (
+      <div className="mark-fix stack-sm">
+        <label className="field">
+          <span>Was ist falsch? (optional)</span>
+          <textarea
+            className="textarea"
+            rows={2}
+            maxLength={600}
+            value={request}
+            placeholder="z. B. „Laut Skript sind es 19 %, nicht 16 %“ – leer lassen, dann prüft Claude selbst"
+            onChange={(e) => setRequest(e.target.value)}
+          />
+        </label>
+        {error && <p className="error-text small">{error}</p>}
+        <div className="row-wrap">
+          <button className="btn btn-primary btn-sm" onClick={propose} disabled={ai.state !== "ready"}>
+            Korrektur vorschlagen
+          </button>
+          {selfEdit}
+          <button className="btn btn-ghost btn-sm" onClick={() => setPhase("idle")}>
+            Abbrechen
+          </button>
+        </div>
+      </div>
+    );
+  }
+  // Vorschlag
+  if (!fix || !fix.old.trim()) {
+    return (
+      <div className="callout mark-fix stack-sm">
+        <span>
+          <strong>Claude meint, die Stelle stimmt.</strong> {fix?.reason}
+        </span>
+        <div className="row-wrap">
+          <button className="btn btn-ghost btn-sm" onClick={() => setPhase("idle")}>
+            OK
+          </button>
+          {selfEdit}
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div className="mark-fix stack-sm">
+      <strong>Korrekturvorschlag</strong>
+      {fix.reason && <p className="small">{fix.reason}</p>}
+      <div className="mark-fix-diff">
+        <div className="mark-fix-old">
+          <span className="small muted">Vorher</span>
+          <Markdown className="study-note">{fix.old}</Markdown>
+        </div>
+        <div className="mark-fix-new">
+          <span className="small muted">Nachher</span>
+          <Markdown className="study-note">{fix.replacement}</Markdown>
+        </div>
+      </div>
+      {error && <p className="error-text small">{error}</p>}
+      <div className="row-wrap">
+        <button className="btn btn-primary btn-sm" onClick={accept}>
+          Übernehmen
+        </button>
+        <button className="btn btn-ghost btn-sm" onClick={() => setPhase("idle")}>
+          Verwerfen
+        </button>
+        {selfEdit}
+      </div>
+    </div>
   );
 }
 

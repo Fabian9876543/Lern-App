@@ -113,3 +113,9 @@ export const ExamAnalysisSchema = z.object({
 });
 
 export type GeneratedExamAnalysis = z.infer<typeof ExamAnalysisSchema>;
+
+export const NoteFixSchema = z.object({
+  old: z.string().describe("Ausschnitt aus dem Markdown des Lernzettels, zeichengenau; leer, wenn die Stelle stimmt"),
+  new: z.string().describe("Ersatz für den Ausschnitt; leer, wenn die Stelle stimmt"),
+  reason: z.string().describe("Was falsch war bzw. warum die Stelle stimmt, 1–2 Sätze"),
+});

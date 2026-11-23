@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from "react";
-import { coerceExamAnalysis, coerceGrading, coerceMaterialName, coerceTopicAnalysis } from "../../ai/coerce";
+import { coerceExamAnalysis, coerceGrading, coerceMaterialName, coerceNoteFix, coerceTopicAnalysis } from "../../ai/coerce";
 import { countJsonKey, countQuestions, describeCorrectAnswer, normalizeQuestions, orderQuestions } from "../../ai/normalize";
 import { CONTINUATION_RESERVE, generateInParts, partsNote } from "../../ai/rounds";
 import {
@@ -19,6 +19,9 @@ import {
   buildTaskInstruction,
   buildTopicInstruction,
   buildExplainTask,
+  buildNoteFixTask,
+  NOTE_FIX_JSON_FORMAT,
+  NOTE_FIX_SYSTEM_PROMPT,
   buildExamAnalysisInstruction,
   EXAM_ANALYSIS_JSON_FORMAT,
   EXAM_ANALYSIS_SYSTEM_PROMPT,
@@ -48,6 +51,8 @@ import type {
   ExamAnalysisParams,
   ExplainParams,
   ExplainResult,
+  NoteFix,
+  NoteFixParams,
   GenerateParams,
   GenerationProgress,
   MaterialNameParams,
@@ -507,6 +512,30 @@ export async function analyzeExam(params: ExamAnalysisParams): Promise<{ analysi
   }
   if (note) analysis.notes = [`Hinweis der App: ${note}`, analysis.notes].filter(Boolean).join("\n\n");
   return { analysis, model: `claude.ai – ${TIERS.find((t) => t.id === tier)?.label ?? tier}` };
+}
+
+// ---------- Stelle im Lernzettel korrigieren ----------
+
+export async function fixNotePassage(params: NoteFixParams): Promise<NoteFix> {
+  const { materials, signal } = params;
+  const sample = await requireSample();
+  const prepared = await prepareMaterials(sample, materials, { signal });
+  const { prompt } = await promptWithMaterials(
+    sample,
+    prepared,
+    (section) => `${NOTE_FIX_SYSTEM_PROMPT}\n\n${NOTE_FIX_JSON_FORMAT}\n\n${section}${buildNoteFixTask(params)}`,
+    { kind: "relevance", query: `${params.quote} ${params.request}` },
+  );
+  await checkLimits(sample, prompt, prepared.images.length);
+  const raw = await sample.json(prompt, {
+    modelTier: getSettings().generationTier,
+    images: prepared.images.length ? prepared.images : undefined,
+    cache: false,
+    signal,
+  });
+  const fix = coerceNoteFix(raw);
+  if (!fix.reason && !fix.old.trim()) throw new AiResponseError("Claude hat keinen Vorschlag geliefert. Bitte erneut versuchen.");
+  return { old: fix.old, replacement: fix.new, reason: fix.reason };
 }
 
 // ---------- Markierte Stelle erklären ----------

@@ -7,7 +7,7 @@ import MaterialList from "../components/MaterialList";
 import MaterialPreview from "../components/MaterialPreview";
 import MaterialRow from "../components/MaterialRow";
 import NoteDownloads from "../components/NoteDownloads";
-import { MarkableNote } from "../components/NoteMarks";
+import EditableNote from "../components/EditableNote";
 import { cancelNoteJob, clearNoteJob, startMaterialNote, useNoteJob } from "../lib/materialNotes";
 import { marksAppendix } from "../lib/noteMarks";
 import { navigate } from "../router";
@@ -57,10 +57,13 @@ export default function NoteViewPage({ noteId }: { noteId: string }) {
   const writing = !!job && !job.done;
 
   async function rewrite() {
-    const ok = await confirmDialog("Claude schreibt den Lernzettel aus demselben Material neu; der jetzige wird ersetzt.", {
-      title: "Lernzettel neu schreiben?",
-      confirmLabel: "Neu schreiben",
-    });
+    const ok = await confirmDialog(
+      `Claude schreibt den Lernzettel aus demselben Material neu; der jetzige wird ersetzt.${note!.editedAt ? " Deine eigenen Änderungen gehen dabei verloren." : ""}`,
+      {
+        title: "Lernzettel neu schreiben?",
+        confirmLabel: "Neu schreiben",
+      },
+    );
     if (!ok) return;
     setError(null);
     startMaterialNote(jobKey, {
@@ -125,11 +128,12 @@ export default function NoteViewPage({ noteId }: { noteId: string }) {
           {job.text ? <Markdown className="study-note">{job.text}</Markdown> : <p className="muted small">Gleich geht's los.</p>}
         </section>
       ) : (
-        <MarkableNote note={note} hasMaterials={sources.length > 0}>
+        <EditableNote note={note} hasMaterials={sources.length > 0}>
           {(marks) => (
             <>
               <p className="muted small">
                 Von Claude aus deinem Material geschrieben · {new Date(note.createdAt).toLocaleDateString("de-DE")} · {note.model}
+                {note.editedAt && <> · von dir bearbeitet am {new Date(note.editedAt).toLocaleDateString("de-DE")}</>}
               </p>
               <div className="row-between">
                 <button
@@ -152,7 +156,7 @@ export default function NoteViewPage({ noteId }: { noteId: string }) {
               </div>
             </>
           )}
-        </MarkableNote>
+        </EditableNote>
       )}
 
       {ids.length > 0 && (
