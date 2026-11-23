@@ -1687,14 +1687,36 @@ details.card[open] > summary {
   margin: 0 auto;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto auto;
-  grid-template-areas: "text actions tools";
+  grid-template-areas: "text actions tools" "text fix tools";
   align-items: center;
-  gap: 0.5rem 0.75rem;
+  gap: 0.45rem 0.75rem;
 }
 @media (max-width: 640px) {
   .mark-bar-inner {
     grid-template-columns: minmax(0, 1fr) auto;
-    grid-template-areas: "text tools" "actions actions";
+    grid-template-areas: "text tools" "actions actions" "fix fix";
+  }
+}
+.mark-bar-fix {
+  grid-area: fix;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.4rem;
+}
+.mark-bar-fix .btn {
+  gap: 0.3rem;
+}
+@media (max-width: 640px) {
+  .mark-bar-fix {
+    justify-content: flex-start;
+  }
+}
+@media (max-width: 380px) {
+  .mark-bar-fix .btn {
+    font-size: 0.84rem;
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
   }
 }
 .mark-bar-text {
@@ -1846,6 +1868,9 @@ body:has(.mark-bar) .container {
 }
 .mark-quote-forgot {
   border-left-color: var(--mark-forgot-line);
+}
+.mark-quote-fix {
+  border-left-color: var(--primary);
 }
 .mark-quote-text {
   max-height: 9.5rem;

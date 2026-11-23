@@ -70,6 +70,7 @@ export function MarkableNote({
   const barBusy = useRef(false);
   const [candidate, setCandidate] = useState<Candidate | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
+  const [fixQuote, setFixQuote] = useState<string | null>(null);
   const [positions, setPositions] = useState<Map<string, number>>(() => new Map());
   const allMarks = useStore().marks;
   const marks = useMemo(() => marksOf(allMarks, note.id), [allMarks, note.id]);
@@ -175,6 +176,12 @@ export function MarkableNote({
     onEdit?.(quote);
   }
 
+  function fix() {
+    const quote = candidate?.quote;
+    dismiss();
+    if (quote) setFixQuote(quote);
+  }
+
   return (
     <>
       <div className="note-toolbar">
@@ -215,6 +222,7 @@ export function MarkableNote({
           onMark={mark}
           onDismiss={dismiss}
           onEdit={onEdit ? edit : undefined}
+          onFix={fix}
           onPointerDown={() => {
             barBusy.current = true;
             window.setTimeout(() => {
@@ -223,6 +231,20 @@ export function MarkableNote({
               if (document.getSelection()?.isCollapsed ?? true) setCandidate(null);
             }, 800);
           }}
+        />
+      )}
+      {fixQuote && (
+        <FixDialog
+          note={note}
+          quote={fixQuote}
+          onClose={() => setFixQuote(null)}
+          onEdit={
+            onEdit &&
+            ((quote) => {
+              setFixQuote(null);
+              onEdit(quote);
+            })
+          }
         />
       )}
       {openId && (
@@ -280,30 +302,33 @@ function SelectionBar({
   onMark,
   onDismiss,
   onEdit,
+  onFix,
   onPointerDown,
 }: {
   candidate: Candidate;
   onMark: (level: MarkLevel) => void;
   onDismiss: () => void;
   onEdit?: () => void;
+  onFix: () => void;
   onPointerDown: () => void;
 }) {
+  const ai = platform.useAiStatus();
   return (
     <div
       className="mark-bar"
       role="region"
-      aria-label="Markierte Stelle erklären lassen"
+      aria-label="Ausgewählte Stelle"
       onPointerDown={onPointerDown}
       // Klick auf die Knöpfe soll die Auswahl nicht aufheben (Desktop).
       onMouseDown={(e) => e.preventDefault()}
     >
-      <div className={`mark-bar-inner ${onEdit ? "with-edit" : ""}`}>
+      <div className="mark-bar-inner">
         <div className="mark-bar-text">
-          <span className="mark-bar-label">Diese Stelle erklären lassen</span>
+          <span className="mark-bar-label">Was ist mit dieser Stelle?</span>
           <Markdown className="mark-bar-quote">{inlineQuote(candidate.quote)}</Markdown>
         </div>
         {candidate.tooLong ? (
-          <p className="small mark-bar-warn">Bitte eine kürzere Stelle markieren – höchstens etwa einen Absatz.</p>
+          <p className="small mark-bar-warn">Zum Erklären bitte eine kürzere Stelle markieren – höchstens etwa einen Absatz.</p>
         ) : (
           <div className="mark-bar-actions">
             <button className="btn btn-sm mark-btn mark-btn-unsure" onClick={() => onMark("unsure")}>
@@ -314,12 +339,22 @@ function SelectionBar({
             </button>
           </div>
         )}
-        <div className="mark-bar-tools">
+        <div className="mark-bar-fix">
+          <button
+            className="btn btn-ghost btn-sm"
+            onClick={onFix}
+            disabled={ai.state === "unavailable"}
+            title="Claude prüft die Stelle und schlägt eine Korrektur vor"
+          >
+            <PencilIcon /> Korrigieren lassen
+          </button>
           {onEdit && (
-            <button className="btn btn-ghost btn-sm" onClick={onEdit} title="Diese Stelle im Lernzettel ändern">
-              <PencilIcon /> Ändern
+            <button className="btn btn-ghost btn-sm" onClick={onEdit} title="Diese Stelle selbst im Lernzettel ändern">
+              Selbst ändern
             </button>
           )}
+        </div>
+        <div className="mark-bar-tools">
           <button className="btn btn-ghost btn-icon btn-sm" onClick={onDismiss} aria-label="Nicht markieren">
             ✕
           </button>
@@ -562,11 +597,72 @@ function MarkPanel({ markId, onClose, onEdit }: { markId: string; onClose: () =>
 
 type FixPhase = "idle" | "asking" | "running" | "proposal" | "done";
 
+/** Korrektur zu einer markierten Stelle (im Erklärungsfenster). */
 function FixSection({ mark, onEdit }: { mark: NoteMark; onEdit?: (quote: string) => void }) {
+  return (
+    <FixFlow
+      noteId={mark.noteId}
+      quote={mark.quote}
+      history={mark.messages.map((m) => ({ role: m.role, content: m.content }))}
+      fixed={!!mark.fixedAt}
+      onApplied={() => repo.updateMark(mark.id, (m) => ({ ...m, fixedAt: Date.now() }))}
+      onEdit={onEdit}
+    />
+  );
+}
+
+/** Direkt aus der Leiste: Stelle korrigieren lassen, ohne Erklärung und ohne Markierung. */
+function FixDialog({
+  note,
+  quote,
+  onClose,
+  onEdit,
+}: {
+  note: StudyNote;
+  quote: string;
+  onClose: () => void;
+  onEdit?: (quote: string) => void;
+}) {
+  return (
+    <Modal title="Stelle korrigieren" onClose={onClose}>
+      <div className="mark-quote mark-quote-fix">
+        <Markdown className="mark-quote-text">{quote}</Markdown>
+      </div>
+      <p className="muted small">
+        Claude prüft die Stelle{" "}
+        {noteMaterials(note).length ? "anhand deines Materials" : "mit seinem Fachwissen"} und schlägt eine möglichst kleine
+        Korrektur vor. Der Lernzettel ändert sich erst, wenn du sie übernimmst.
+      </p>
+      <FixFlow noteId={note.id} quote={quote} history={[]} startAsking onClose={onClose} onEdit={onEdit} />
+    </Modal>
+  );
+}
+
+function FixFlow({
+  noteId,
+  quote,
+  history,
+  fixed = false,
+  startAsking = false,
+  onApplied,
+  onClose,
+  onEdit,
+}: {
+  noteId: string;
+  quote: string;
+  history: { role: "user" | "assistant"; content: string }[];
+  fixed?: boolean;
+  /** Gleich mit dem Eingabefeld beginnen (eigenes Fenster). */
+  startAsking?: boolean;
+  onApplied?: () => void;
+  /** Eigenes Fenster: Abbrechen/Verwerfen/Fertig schließen es. */
+  onClose?: () => void;
+  onEdit?: (quote: string) => void;
+}) {
   const store = useStore();
-  const note = store.notes.find((n) => n.id === mark.noteId);
+  const note = store.notes.find((n) => n.id === noteId);
   const ai = platform.useAiStatus();
-  const [phase, setPhase] = useState<FixPhase>(mark.fixedAt ? "done" : "idle");
+  const [phase, setPhase] = useState<FixPhase>(fixed ? "done" : startAsking ? "asking" : "idle");
   const [request, setRequest] = useState("");
   const [fix, setFix] = useState<NoteFix | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -584,9 +680,9 @@ function FixSection({ mark, onEdit }: { mark: NoteMark; onEdit?: (quote: string)
         subjectName: store.subjects.find((x) => x.id === note!.subjectId)?.name ?? "",
         noteTitle: note!.topicName,
         noteContent: note!.content,
-        quote: mark.quote,
+        quote,
         request,
-        history: mark.messages.map((m) => ({ role: m.role, content: m.content })),
+        history,
         materials: noteMaterials(note!),
         signal: c.signal,
       });
@@ -601,26 +697,40 @@ function FixSection({ mark, onEdit }: { mark: NoteMark; onEdit?: (quote: string)
   }
 
   function accept() {
-    const current = getState().notes.find((n) => n.id === mark.noteId);
+    const current = getState().notes.find((n) => n.id === noteId);
     if (!current || !fix) return;
-    const next = applyFix(current.content, fix.old, fix.replacement, findInSource(current.content, mark.quote)?.start);
+    const next = applyFix(current.content, fix.old, fix.replacement, findInSource(current.content, quote)?.start);
     if (next === null) {
       setError("Claude hat die Stelle im Text nicht genau getroffen. Ändere sie bitte selbst.");
       return;
     }
     repo.updateNote(current.id, { content: next, editedAt: Date.now() });
-    repo.updateMark(mark.id, (m) => ({ ...m, fixedAt: Date.now() }));
+    onApplied?.();
     setPhase("done");
   }
 
+  /** Zurück zum Anfang – im eigenen Fenster heißt das: schließen. */
+  const back = () => (onClose ? onClose() : setPhase("idle"));
+
   const selfEdit = onEdit && (
-    <button className="btn btn-ghost btn-sm" onClick={() => onEdit(mark.quote)}>
+    <button className="btn btn-ghost btn-sm" onClick={() => onEdit(quote)}>
       Selbst ändern
     </button>
   );
 
   if (phase === "done") {
-    return <div className="callout callout-ok mark-fix">✓ Diese Stelle ist im Lernzettel korrigiert.</div>;
+    return (
+      <div className="callout callout-ok mark-fix stack-sm">
+        <span>✓ Diese Stelle ist im Lernzettel korrigiert.</span>
+        {onClose && (
+          <div>
+            <button className="btn btn-primary btn-sm" onClick={onClose}>
+              Fertig
+            </button>
+          </div>
+        )}
+      </div>
+    );
   }
   if (phase === "idle") {
     return (
@@ -668,7 +778,7 @@ function FixSection({ mark, onEdit }: { mark: NoteMark; onEdit?: (quote: string)
             Korrektur vorschlagen
           </button>
           {selfEdit}
-          <button className="btn btn-ghost btn-sm" onClick={() => setPhase("idle")}>
+          <button className="btn btn-ghost btn-sm" onClick={back}>
             Abbrechen
           </button>
         </div>
@@ -683,7 +793,7 @@ function FixSection({ mark, onEdit }: { mark: NoteMark; onEdit?: (quote: string)
           <strong>Claude meint, die Stelle stimmt.</strong> {fix?.reason}
         </span>
         <div className="row-wrap">
-          <button className="btn btn-ghost btn-sm" onClick={() => setPhase("idle")}>
+          <button className="btn btn-ghost btn-sm" onClick={back}>
             OK
           </button>
           {selfEdit}
@@ -710,7 +820,7 @@ function FixSection({ mark, onEdit }: { mark: NoteMark; onEdit?: (quote: string)
         <button className="btn btn-primary btn-sm" onClick={accept}>
           Übernehmen
         </button>
-        <button className="btn btn-ghost btn-sm" onClick={() => setPhase("idle")}>
+        <button className="btn btn-ghost btn-sm" onClick={back}>
           Verwerfen
         </button>
         {selfEdit}
