@@ -5,6 +5,9 @@ import "./styles.css";
 import App from "./App";
 import { startStore } from "./store/store";
 
+// In claude.ai fehlt die Sprachangabe der Seite – wichtig für Silbentrennung und Vorlesen.
+if (!document.documentElement.lang) document.documentElement.lang = "de";
+
 startStore();
 
 createRoot(document.getElementById("root")!).render(

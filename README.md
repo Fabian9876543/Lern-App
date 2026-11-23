@@ -112,6 +112,11 @@ Beide Varianten entstehen aus demselben Code (`src/targets/artifact` bzw. `src/t
   Stellen bleiben gelb bzw. rot im Lernzettel, sind gespeichert und stehen unter „Markierte Stellen“; Antippen öffnet
   die Erklärung wieder. Beim Neuschreiben bleiben die Markierungen erhalten, und PDF bzw. Markdown enthalten die
   Erklärungen als Anhang. Die Erklärung läuft weiter, auch wenn man das Fenster schließt.
+- **Buchungssätze übersichtlich (Rechnungswesen, BwR):** In Lernzetteln, Tests, Musterlösungen und Erklärungen
+  schreibt Claude jeden Buchungssatz als Tabelle „Konto | Soll | Haben“ – Haben-Konten mit „an“, Beträge rechtsbündig
+  in ihrer Spalte, immer mit Tausenderpunkt, zwei Nachkommastellen und € (z. B. „11.900,00 €“). Kontonummern stehen
+  immer mit dem Kontonamen da (z. B. „2800 Bank“), Namen und Abkürzungen so wie im Material. Auf dem Handy werden lange
+  Kontonamen getrennt, damit Soll und Haben ganz sichtbar bleiben. Gilt für neu erstellte Lernzettel und Tests.
 - **Lernplan ohne Material:** Ohne hochgeladenes Material schlägt Claude die typischen Prüfungsthemen des Fachs vor
   (am besten mit Hinweisen wie „Uni, 1. Semester, Klausur 90 Min.“) und erstellt Übungstests, Wiederholungen,
   Probeklausur und Lernzettel aus seinem Fachwissen. Die App weist darauf hin, dass das vom Stoff der eigenen

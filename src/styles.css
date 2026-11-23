@@ -1305,6 +1305,29 @@ details.solution-box[open] > summary {
 .markdown th {
   background: var(--surface-2);
 }
+.markdown th:not([style]) {
+  text-align: left;
+}
+/* Rechtsbündige Spalten (meist Beträge, z. B. Soll/Haben): nicht umbrechen, Ziffern gleich breit */
+.markdown th[style*="right"],
+.markdown td[style*="right"] {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+/* Tabellen mit Beträgen (z. B. Buchungssätze): lange Kontonamen trennen statt die Tabelle zu verbreitern */
+.markdown table:has(td[style*="right"]) :is(td, th):not([style*="right"]) {
+  hyphens: auto;
+  -webkit-hyphens: auto;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 560px) {
+  .markdown table:has(td[style*="right"]) {
+    font-size: 0.9em;
+  }
+  .markdown table:has(td[style*="right"]) :is(td, th) {
+    padding: 0.3em 0.45em;
+  }
+}
 .markdown code {
   background: var(--surface-2);
   padding: 0.1em 0.35em;

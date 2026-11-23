@@ -15,6 +15,24 @@ export const DIFFICULTY_LABELS: Record<Difficulty | "mixed", string> = {
   mixed: "gemischt",
 };
 
+/**
+ * Rechnungswesen: Buchungssätze, Konten und Beträge so, dass man sie auf einen
+ * Blick lesen kann (statt „4400 11.900 an 2800 11.662, 6002 200“).
+ */
+export const ACCOUNTING_RULES = `Buchungssätze, Konten und Beträge (nur falls sie vorkommen, z. B. in Rechnungswesen, Buchführung oder BwR):
+- Jeden Buchungssatz als eigene Markdown-Tabelle mit den Spalten „Konto | Soll | Haben“, Betragsspalten rechtsbündig: zuerst die Soll-Konten, dann die Haben-Konten mit vorangestelltem „an“, jeder Betrag in der Spalte seiner Seite. Nie als Fließtext-Zeile wie „4400 11.900 an 2800 11.662, 6002 200“ und nie kursiv. Beispiel:
+
+| Konto | Soll | Haben |
+|---|---:|---:|
+| 4400 Verbindlichkeiten aus Lieferungen und Leistungen | 11.900,00 € | |
+| an 2800 Bank | | 11.662,00 € |
+| an 6002 Nachlässe für Rohstoffe | | 200,00 € |
+| an 2600 Vorsteuer | | 38,00 € |
+
+- Mehrere Buchungssätze: über jeder Tabelle eine kurze fette Zeile mit Nummer und Geschäftsfall, z. B. „**2.** Zahlung an den Lieferanten unter Abzug von Skonto“.
+- Kontonummern immer zusammen mit dem Kontonamen – auch im Fließtext und in T-Konten, z. B. „2800 Bank“. Kontenrahmen, Kontonamen und Abkürzungen so wie im Material; benutzt das Material Abkürzungen, schreib sie in Klammern dazu, z. B. „4400 Verbindlichkeiten aus Lieferungen und Leistungen (VE)“.
+- Beträge immer mit Tausenderpunkt, zwei Nachkommastellen und Währung, z. B. „11.900,00 €“.`;
+
 const QUESTION_RULES = `Aufgabenformate (Feld "type"):
 - single_choice: genau eine richtige Option. 3–5 Optionen in "options", Index der richtigen in "correct_options".
 - multiple_choice: eine oder mehrere richtige Optionen; schreibe „(mehrere Antworten möglich)“ in die Aufgabenstellung.
@@ -26,7 +44,9 @@ Für jede Aufgabe:
 - Die Aufgabenstellung ist für sich allein verständlich. Die App kann keine Bilder anzeigen: Werden Abbildungen, Tabellen oder Diagramme gebraucht, gib die nötigen Informationen als Text, Markdown-Tabelle oder LaTeX wieder.
 - "model_solution" ist eine vollständige, nachvollziehbare Musterlösung mit Lösungsweg; "explanation" erklärt kurz, warum das richtig ist und welche Fehler typisch sind; "hint" gibt einen Denkanstoß, ohne die Lösung zu verraten.
 - Bei Auswahlfragen sind die falschen Optionen plausibel (typische Fehler, Verwechslungen) und die Position der richtigen Option variiert.
-- Formatierung: Markdown; Formeln in LaTeX mit $...$ (inline) und $$...$$ (abgesetzt).`;
+- Formatierung: Markdown; Formeln in LaTeX mit $...$ (inline) und $$...$$ (abgesetzt).
+
+${ACCOUNTING_RULES}`;
 
 export const GENERATION_SYSTEM_PROMPT = `Du bist ein erfahrener Tutor. Du erstellst aus dem Lernmaterial eines Lernenden einen interaktiven Übungstest, den eine Lern-App anzeigt und auswertet.
 
@@ -108,7 +128,8 @@ export const GRADING_SYSTEM_PROMPT = `Du bewertest die Antwort eines Lernenden a
 - verdict: "correct" bei voller Punktzahl, "wrong" bei 0 Punkten, sonst "partial".
 - feedback: 1–4 Sätze in der Sprache der Aufgabe, direkt an den Lernenden („du“). Nenne konkret, was stimmt und was fehlt oder falsch ist. Die Musterlösung wird separat angezeigt – wiederhole sie nicht vollständig.
 - Ist ein Foto einer handschriftlichen Lösung beigefügt, bewerte den Inhalt des Fotos. Ist es unleserlich, sag das im Feedback.
-- Leere oder themenfremde Antworten bekommen 0 Punkte.`;
+- Leere oder themenfremde Antworten bekommen 0 Punkte.
+- Nennst du im Feedback Konten oder Beträge, dann Kontonummer mit Kontonamen (z. B. „2800 Bank“) und Beträge wie „11.900,00 €“. Das betrifft nur, wie du selbst schreibst.`;
 
 /** Aufgabe, Musterlösung und Antwort für die KI-Bewertung. */
 export function gradingUserText(
@@ -269,7 +290,9 @@ Regeln:
 - Schreib verständlich und direkt an den Lernenden („du“), mit kurzen Absätzen, Aufzählungen und Hervorhebungen.
 - Formeln in LaTeX mit $...$ (inline) und $$...$$ (abgesetzt). Tabellen als Markdown-Tabelle. Keine Bilder.
 - Umfang: so viel, wie in die angegebene Lernzeit passt – meist 500 bis 1200 Wörter.
-- Prüfe alle Rechnungen, Beispiele und Lösungen sorgfältig.`;
+- Prüfe alle Rechnungen, Beispiele und Lösungen sorgfältig.
+
+${ACCOUNTING_RULES}`;
 
 export function buildStudyNoteInstruction(params: {
   subjectName: string;
@@ -375,7 +398,9 @@ Regeln:
 - Schreib verständlich und direkt an den Lernenden („du“), mit kurzen Absätzen, Aufzählungen und Hervorhebungen. Keine Einleitung wie „Hier ist dein Lernzettel“, kein Schlusswort.
 - Formeln in LaTeX mit $...$ (inline) und $$...$$ (abgesetzt). Tabellen und T-Konten als Markdown-Tabelle. Keine Bilder.
 - Sprache: die Sprache des Materials.
-- Prüfe alle Rechnungen, Beispiele und Lösungen sorgfältig.`;
+- Prüfe alle Rechnungen, Beispiele und Lösungen sorgfältig.
+
+${ACCOUNTING_RULES}`;
 
 export function buildMaterialNoteInstruction(params: { subjectName: string; focus: string; length: NoteLength }): string {
   const lengthRule: Record<NoteLength, string> = {
@@ -423,6 +448,8 @@ Form:
 - Keine Überschriften mit # oder ##; gliedere mit kurzen Absätzen, Aufzählungen und **fett gesetzten** Stichworten.
 - Erkläre nur diese Stelle und das, was man direkt dafür braucht – nicht den ganzen Lernzettel.
 - Prüfe Rechnungen und Beispiele sorgfältig.
+
+${ACCOUNTING_RULES}
 
 Letzte Zeile – allein in der Zeile und genau in dieser Form:
 GRUNDLAGE: <Liste>
