@@ -7,6 +7,18 @@ Eine persönliche Lern-App: Du lädst deine Lernmaterialien hoch, und die App ma
 - **Neue Aufgaben erzeugen** – Lade Material als Referenz hoch (Skript, Folien, Altklausuren). Die KI erstellt neue,
   andere Aufgaben zum gleichen Stoff – in Anzahl, Schwierigkeit und Format nach Wahl.
 
+Alles folgt einem roten Faden:
+
+- Originalaufgaben kommen in der Reihenfolge des Materials.
+- Neue Aufgaben sind nach Themen gruppiert – in Lernreihenfolge (Grundlagen zuerst, im Lernplan in dessen Reihenfolge)
+  und je Thema von leicht nach schwer; auch wenn viele Aufgaben in mehreren Teilen abgeholt werden. Wer lieber
+  durcheinander üben möchte, setzt vor dem Start „Reihenfolge mischen“.
+- Lernzettel aus Material: Überblick, dann die Themen in Lernreihenfolge (wie im Skript, nicht nach Dateien),
+  Aufgabenblätter bei den passenden Themen; Lernzettel im Lernplan bauen auf den Themen davor auf und greifen
+  späteren nicht vor.
+- Lernplan: Themen in Lernreihenfolge, Voraussetzungen immer vorher; Lernen, Üben, Wiederholen und am Ende die
+  Probeklausur.
+
 ## Zwei Varianten
 
 | | claude.ai-Version | Web-Version |

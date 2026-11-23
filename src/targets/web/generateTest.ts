@@ -1,5 +1,5 @@
 import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod";
-import { countQuestions, normalizeQuestions } from "../../ai/normalize";
+import { countQuestions, normalizeQuestions, orderQuestions } from "../../ai/normalize";
 import { buildTaskInstruction, generationSystemPrompt } from "../../ai/prompts";
 import { generateInParts, partsNote } from "../../ai/rounds";
 import { GeneratedTestPartSchema } from "../../ai/schemas";
@@ -68,10 +68,12 @@ export async function generateTest(params: GenerateParams): Promise<Test> {
     return { text, truncated: message.stop_reason === "max_tokens" };
   }, { signal, describeError });
 
-  const questions = normalizeQuestions(result.questions, {
+  const normalized = normalizeQuestions(result.questions, {
     forceAiSolutions: settings.mode === "generated",
     makeId: newId,
   });
+  // Originalaufgaben bleiben in der Reihenfolge des Materials; neue Aufgaben nach Themen und Schwierigkeit.
+  const questions = settings.mode === "generated" ? orderQuestions(normalized, settings.topicNames) : normalized;
   if (questions.length === 0) {
     throw new AiResponseError(
       settings.mode === "exact"

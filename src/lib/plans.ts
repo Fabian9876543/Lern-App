@@ -1,5 +1,6 @@
 import platform from "@platform-impl";
 import { manualTopics, parseTopicLines, toPlanTopics } from "../ai/topics";
+import { orderQuestions } from "../ai/normalize";
 import { TYPE_LABELS } from "../ai/prompts";
 import { getState, repo } from "../store/store";
 import type { GenerationProgress } from "../targets/types";
@@ -18,6 +19,7 @@ import {
   weekdayOf,
   addDays,
   formatDay,
+  orderTopics,
 } from "./planner";
 
 /** Aktionen rund um Lernpläne, die Speicher und KI nutzen. */
@@ -188,13 +190,12 @@ function subjectNameOf(plan: StudyPlan): string {
 
 /** Setzt das Thema jeder Frage auf den exakten Namen eines Plan-Themas. */
 function alignTopics(test: Test, topics: PlanTopic[], fallback?: PlanTopic): Test {
-  return {
-    ...test,
-    questions: test.questions.map((q) => {
-      const t = matchTopic(q.topic, topics) ?? fallback;
-      return t ? { ...q, topic: t.name } : q;
-    }),
-  };
+  const questions = test.questions.map((q) => {
+    const t = matchTopic(q.topic, topics) ?? fallback;
+    return t ? { ...q, topic: t.name } : q;
+  });
+  // Neue Aufgaben: in der Lernreihenfolge des Plans, je Thema von leicht nach schwer.
+  return { ...test, questions: test.mode === "generated" ? orderQuestions(questions, orderTopics(topics).map((t) => t.name)) : questions };
 }
 
 async function generatePlanTest(

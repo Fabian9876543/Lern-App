@@ -1,6 +1,35 @@
 import type { Question } from "../types";
 import type { GeneratedQuestion } from "./schemas";
 
+const DIFFICULTY_RANK = { easy: 0, medium: 1, hard: 2 } as const;
+const topicKey = (t: string) => t.trim().toLowerCase();
+
+/**
+ * Roter Faden für neu erstellte Aufgaben: nach Themen gruppiert – in der
+ * Reihenfolge der Themenliste (Lernplan) bzw. in der Reihenfolge, in der die
+ * Themen zuerst vorkommen –, innerhalb eines Themas von leicht nach schwer.
+ * Wichtig bei Tests aus mehreren Teilen, deren spätere Aufgaben sonst hinten
+ * angehängt wären. Gleichrangige Aufgaben behalten ihre Reihenfolge.
+ */
+export function orderQuestions<T extends Pick<Question, "topic" | "difficulty">>(questions: T[], topicOrder: string[] = []): T[] {
+  const rank = new Map<string, number>();
+  topicOrder.forEach((t) => {
+    if (!rank.has(topicKey(t))) rank.set(topicKey(t), rank.size);
+  });
+  questions.forEach((q) => {
+    if (!rank.has(topicKey(q.topic))) rank.set(topicKey(q.topic), rank.size);
+  });
+  return questions
+    .map((q, i) => ({ q, i }))
+    .sort(
+      (a, b) =>
+        rank.get(topicKey(a.q.topic))! - rank.get(topicKey(b.q.topic))! ||
+        DIFFICULTY_RANK[a.q.difficulty] - DIFFICULTY_RANK[b.q.difficulty] ||
+        a.i - b.i,
+    )
+    .map((x) => x.q);
+}
+
 /**
  * Wandelt die KI-Ausgabe in das interne Fragenformat um und repariert
  * inkonsistente Fragen (z. B. Auswahlfrage ohne gültige richtige Option),

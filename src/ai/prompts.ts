@@ -105,6 +105,7 @@ Erstelle genau ${count} Aufgaben aus deinem Fachwissen – so, wie sie in Übung
 Decke die genannten Themen ausgewogen ab, statt dich auf ein Detail zu konzentrieren.
 Schwierigkeit: ${difficulty}.
 Erlaubte Formate: ${typeList}. Nutze eine sinnvolle Mischung dieser Formate, passend zum Stoff.
+${orderRule(settings)}
 "source" ist immer null, "solution_from_material" ist immer false.${focus ? `\nSchwerpunkt: ${focus}` : ""}${topicRule(settings)}`;
   }
   return `Modus: NEUE AUFGABEN.
@@ -113,7 +114,15 @@ Die Aufgaben dürfen nicht mit Aufgaben im Material übereinstimmen: verwende ne
 Decke die wichtigsten Themen des Materials ausgewogen ab, statt dich auf ein Detail zu konzentrieren.
 Schwierigkeit: ${difficulty}.
 Erlaubte Formate: ${typeList}. Nutze eine sinnvolle Mischung dieser Formate, passend zum Stoff.
+${orderRule(settings)}
 Trage in "source" ein, auf welchen Teil des Materials sich die Aufgabe bezieht. "solution_from_material" ist immer false.${focus ? `\nSchwerpunkt: ${focus}` : ""}${topicRule(settings)}`;
+}
+
+/** Roter Faden: Reihenfolge neuer Aufgaben. */
+function orderRule(settings: GenerationSettings): string {
+  return settings.topicNames?.length
+    ? "Reihenfolge: nach Themen gruppiert in der Reihenfolge der Themenliste unten, innerhalb eines Themas von leicht nach schwer."
+    : "Reihenfolge wie ein roter Faden: nach Themen gruppiert, die Themen in einer sinnvollen Lernreihenfolge (Grundlagen vor dem, was darauf aufbaut – bei Material meist wie im Skript), innerhalb eines Themas von leicht nach schwer.";
 }
 
 function topicRule(settings: GenerationSettings): string {
@@ -309,7 +318,14 @@ export function buildStudyNoteInstruction(params: {
     `Geplante Lernzeit für dieses Thema: ca. ${params.minutes} Minuten.`,
   ];
   if (params.planTopics.length > 1) {
-    lines.push(`Alle Themen des Lernplans in Lernreihenfolge:\n${params.planTopics.map((t, i) => `${i + 1}. ${t}`).join("\n")}`);
+    const position = params.planTopics.indexOf(topic.name);
+    lines.push(
+      `Alle Themen des Lernplans in Lernreihenfolge:\n${params.planTopics.map((t, i) => `${i + 1}. ${t}`).join("\n")}${
+        position >= 0
+          ? `\n\nDieses Thema ist Nr. ${position + 1}. Was in den Themen davor drankam, darfst du voraussetzen – erinnere nur kurz daran, wo es gebraucht wird. Inhalte späterer Themen nimmst du nicht vorweg.`
+          : ""
+      }`,
+    );
   }
   if (params.focus.trim()) lines.push(`Hinweise des Lernenden zur Prüfung: ${params.focus.trim()}`);
   if (params.hasMaterials) {
@@ -386,8 +402,8 @@ export const MATERIAL_NOTE_SYSTEM_PROMPT = `Du bist ein erfahrener Tutor und sch
 
 Aufbau (Markdown):
 - Erste Zeile: „# “ und ein kurzer, treffender Titel (z. B. „Abschreibungen“ oder „Kapitel 4: Bilanzanalyse“).
-- ## Überblick – worum es geht, 2–4 Sätze.
-- Danach ein Abschnitt (##) pro Thema des Stoffs, in der Reihenfolge des Materials: das Wichtigste (Definitionen, Regeln, Formeln), wo es passt ein kurzes Vorgehen für typische Aufgaben und ein vorgerechnetes Beispiel. Nenne bei wichtigen Punkten die Fundstelle in Klammern (z. B. „Skript S. 14“, „Blatt 3, Aufgabe 2“).
+- ## Überblick – worum es geht und wie die Themen zusammenhängen, 2–4 Sätze.
+- Danach ein Abschnitt (##) pro Thema des Stoffs, in einer sinnvollen Lernreihenfolge – Grundlagen vor dem, was darauf aufbaut, meist so wie im Skript bzw. in der Vorlesung (nicht einfach in der Reihenfolge der Dateien). Übungsblätter und Klausuren ordnest du den passenden Themen zu, statt sie als eigene Abschnitte anzuhängen. Jeder Abschnitt: das Wichtigste (Definitionen, Regeln, Formeln), wo es passt ein kurzes Vorgehen für typische Aufgaben und ein vorgerechnetes Beispiel. Nenne bei wichtigen Punkten die Fundstelle in Klammern (z. B. „Skript S. 14“, „Blatt 3, Aufgabe 2“).
 - ## Typische Fehler – häufige Fehler und Verwechslungen.
 - ## Selbstcheck – kurze Fragen zum Selbsttest, nummeriert.
 - ## Lösungen zum Selbstcheck – kurze Antworten, gleich nummeriert.

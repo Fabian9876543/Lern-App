@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from "react";
 import { coerceGrading, coerceMaterialName, coerceTopicAnalysis } from "../../ai/coerce";
-import { countJsonKey, countQuestions, describeCorrectAnswer, normalizeQuestions } from "../../ai/normalize";
+import { countJsonKey, countQuestions, describeCorrectAnswer, normalizeQuestions, orderQuestions } from "../../ai/normalize";
 import { CONTINUATION_RESERVE, generateInParts, partsNote } from "../../ai/rounds";
 import {
   GRADING_JSON_FORMAT,
@@ -326,10 +326,12 @@ export async function generateTest(params: GenerateParams): Promise<Test> {
     return { text: reply.text, truncated: reply.truncated };
   }, { signal, describeError });
 
-  const questions = normalizeQuestions(result.questions, {
+  const normalized = normalizeQuestions(result.questions, {
     forceAiSolutions: settings.mode === "generated",
     makeId: newId,
   });
+  // Originalaufgaben bleiben in der Reihenfolge des Materials; neue Aufgaben nach Themen und Schwierigkeit.
+  const questions = settings.mode === "generated" ? orderQuestions(normalized, settings.topicNames) : normalized;
   if (questions.length === 0) {
     throw new AiResponseError(
       settings.mode === "exact"
