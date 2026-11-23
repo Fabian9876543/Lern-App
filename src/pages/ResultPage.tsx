@@ -19,6 +19,7 @@ export default function ResultPage({ attemptId }: { attemptId: string }) {
       </div>
     );
   }
+  const plan = test.planId ? store.plans.find((p) => p.id === test.planId) : undefined;
   const questions = attemptQuestions(attempt, test);
   const summary = summarize(attempt, test);
   const toRepeat = questions.filter((q) => attempt.answers[q.id]?.verdict !== "correct");
@@ -56,13 +57,13 @@ export default function ResultPage({ attemptId }: { attemptId: string }) {
   return (
     <div className="stack">
       <div className="page-header">
-        {test.planId && store.plans.some((p) => p.id === test.planId) ? (
-          <a href={`#/plan/${test.planId}`} className="back-link">
-            ← Zurück zum Lernplan
+        {plan ? (
+          <a href={`#/plan/${plan.id}`} className="crumb">
+            {plan.title}
           </a>
         ) : (
-          <a href={`#/test/${test.id}`} className="back-link">
-            ← {test.title}
+          <a href={`#/test/${test.id}`} className="crumb">
+            {test.title}
           </a>
         )}
         <h1>Ergebnis</h1>

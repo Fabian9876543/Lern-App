@@ -108,6 +108,12 @@ Beide Varianten entstehen aus demselben Code (`src/targets/artifact` bzw. `src/t
   Probeklausur und Lernzettel aus seinem Fachwissen. Die App weist darauf hin, dass das vom Stoff der eigenen
   Veranstaltung abweichen kann.
 - Backup als JSON-Datei exportieren/importieren
+- **„Zurück“-Knopf** oben in der Kopfleiste (bleibt beim Scrollen sichtbar): führt zur vorherigen Seite – auch in
+  claude.ai, wo es keinen Browser-Verlauf für die App gibt – und stellt dort die Scroll-Position wieder her. Gelöschte
+  Seiten werden übersprungen; ohne vorherige Seite geht es zur übergeordneten (z. B. vom Test zum Fach). Über der
+  Überschrift steht zur Orientierung das Fach bzw. der Test, zu dem die Seite gehört. Antwortentwürfe in einem
+  laufenden Test bleiben beim Verlassen erhalten. In der Web-Version gilt derselbe Verlauf wie für die Zurück-Taste
+  des Browsers.
 - Funktioniert auf Handy und Desktop; kann auf dem Handy zum Startbildschirm hinzugefügt werden
 
 ## Starten

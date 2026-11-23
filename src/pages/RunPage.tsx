@@ -8,7 +8,7 @@ import { confirmDialog } from "../components/Dialogs";
 import { attemptQuestions, evaluateAnswer, selfGrade } from "../lib/attempts";
 import { onAttemptFinished } from "../lib/plans";
 import { hasAnswer } from "../lib/grading";
-import { navigate } from "../router";
+import { navigate, useLeaveGuard } from "../router";
 import { getState, repo, useStore } from "../store/store";
 import type { AnswerRecord, AnswerResponse, Attempt, Test, Verdict } from "../types";
 
@@ -57,6 +57,11 @@ function Runner({ attempt, test }: { attempt: Attempt; test: Test }) {
   }, [question?.id]);
 
   useEffect(() => () => window.clearTimeout(saveTimer.current), []);
+
+  // Wer die Seite verlässt (Zurück, Übersicht, …), verliert den Antwortentwurf nicht.
+  useLeaveGuard(() => {
+    if (question && getState().attempts.find((a) => a.id === attempt.id)?.status === "in_progress") flushDraft();
+  });
 
   if (!question) {
     return (
@@ -225,8 +230,8 @@ function Runner({ attempt, test }: { attempt: Attempt; test: Test }) {
     <div className="stack run">
       <div className="run-header">
         <div className="row-between">
-          <a href={`#/test/${test.id}`} className="back-link" onClick={() => flushDraft()}>
-            ← {test.title}
+          <a href={`#/test/${test.id}`} className="crumb">
+            {test.title}
           </a>
           <span className="chip chip-soft">{isExam ? "Prüfungsmodus" : "Übungsmodus"}</span>
         </div>
@@ -281,8 +286,8 @@ function Runner({ attempt, test }: { attempt: Attempt; test: Test }) {
       </article>
 
       <div className="run-actions">
-        <button className="btn btn-ghost" onClick={() => goTo(index - 1)} disabled={index === 0}>
-          ← Zurück
+        <button className="btn btn-ghost" onClick={() => goTo(index - 1)} disabled={index === 0} aria-label="Vorherige Frage">
+          ← Vorherige
         </button>
         <div className="row-wrap">
           {!isExam && !locked && (

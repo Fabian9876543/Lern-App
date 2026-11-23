@@ -116,8 +116,8 @@ export default function TestPage({ testId }: { testId: string }) {
   return (
     <div className="stack">
       <div className="page-header">
-        <a href={`#/subject/${test.subjectId}`} className="back-link">
-          ← Zurück zum Fach
+        <a href={`#/subject/${test.subjectId}`} className="crumb">
+          {store.subjects.find((s) => s.id === test.subjectId)?.name ?? "Fach"}
         </a>
         <div className="row-between">
           <h1>{test.title}</h1>

@@ -111,8 +111,8 @@ export default function NotePage({ planId, topicId }: { planId: string; topicId:
   return (
     <div className="stack">
       <div className="page-header">
-        <a href={`#/plan/${plan.id}`} className="back-link">
-          ← {plan.title}
+        <a href={`#/plan/${plan.id}`} className="crumb">
+          {plan.title}
         </a>
         <p className="muted small eyebrow">Lernzettel</p>
         <h1>{topic.name}</h1>

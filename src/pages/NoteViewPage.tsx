@@ -85,8 +85,8 @@ export default function NoteViewPage({ noteId }: { noteId: string }) {
   return (
     <div className="stack">
       <div className="page-header">
-        <a href={`#/subject/${note.subjectId}`} className="back-link">
-          ← {subject?.name ?? "Fach"}
+        <a href={`#/subject/${note.subjectId}`} className="crumb">
+          {subject?.name ?? "Fach"}
         </a>
         <p className="muted small eyebrow">Lernzettel</p>
         <div className="row-between">

@@ -61,8 +61,8 @@ export default function SubjectPage({ subjectId }: { subjectId: string }) {
   return (
     <div className="stack">
       <div className="page-header">
-        <a href="#/" className="back-link">
-          ← Fächer
+        <a href="#/" className="crumb">
+          Fächer
         </a>
         <div className="row-between">
           <h1>

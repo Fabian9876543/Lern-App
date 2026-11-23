@@ -184,8 +184,8 @@ export default function NewTestPage({ subjectId }: { subjectId: string }) {
   return (
     <div className="stack">
       <div className="page-header">
-        <a href={`#/subject/${subjectId}`} className="back-link">
-          ← {subject.name}
+        <a href={`#/subject/${subjectId}`} className="crumb">
+          {subject.name}
         </a>
         <h1>Neuen Test erstellen</h1>
       </div>

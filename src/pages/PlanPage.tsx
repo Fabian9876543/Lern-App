@@ -122,8 +122,8 @@ export default function PlanPage({ planId }: { planId: string }) {
   return (
     <div className="stack">
       <div className="page-header">
-        <a href={`#/subject/${plan.subjectId}`} className="back-link">
-          ← {subject?.name ?? "Fach"}
+        <a href={`#/subject/${plan.subjectId}`} className="crumb">
+          {subject?.name ?? "Fach"}
         </a>
         <div className="row-between">
           <h1>{plan.title}</h1>

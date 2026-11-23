@@ -124,8 +124,8 @@ export default function NewPlanPage({ subjectId }: { subjectId: string }) {
   return (
     <div className="stack">
       <div className="page-header">
-        <a href={`#/subject/${subjectId}`} className="back-link">
-          ← {subject.name}
+        <a href={`#/subject/${subjectId}`} className="crumb">
+          {subject.name}
         </a>
         <h1>Lernplan erstellen</h1>
         <p className="muted">

@@ -109,8 +109,8 @@ export default function NewNotePage({ subjectId }: { subjectId: string }) {
   return (
     <div className="stack">
       <div className="page-header">
-        <a href={`#/subject/${subjectId}`} className="back-link">
-          ← {subject.name}
+        <a href={`#/subject/${subjectId}`} className="crumb">
+          {subject.name}
         </a>
         <h1>Lernzettel erstellen</h1>
         <p className="muted">

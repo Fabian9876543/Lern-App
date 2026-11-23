@@ -59,9 +59,6 @@ export default function SettingsPage() {
   return (
     <div className="stack">
       <div className="page-header">
-        <a href="#/" className="back-link">
-          ← Übersicht
-        </a>
         <h1>Einstellungen</h1>
       </div>
 
