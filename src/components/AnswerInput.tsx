@@ -132,13 +132,24 @@ function FreeTextInput({
   disabled: boolean;
 }) {
   const [imageError, setImageError] = useState<string | null>(null);
+  const [imageNote, setImageNote] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
 
   async function addImage(file: File) {
     setImageError(null);
+    setImageNote(null);
     setUploading(true);
     try {
-      const blob = await normalizeImage(file, 1600, 900_000);
+      let source: Blob = file;
+      // Lösung als PDF (z. B. aus GoodNotes oder Notizen am iPad): erste Seite als Bild.
+      if (file.type === "application/pdf" || /\.pdf$/i.test(file.name)) {
+        const { openPdf, renderPage, closePdf } = await import("../lib/pdf");
+        const doc = await openPdf(file);
+        source = await renderPage(doc, 1, 2000);
+        if (doc.numPages > 1) setImageNote(`Nur die erste von ${doc.numPages} Seiten wurde übernommen. Längere Lösungen am besten als Bildschirmfoto hochladen.`);
+        await closePdf(doc);
+      }
+      const blob = await normalizeImage(source, 1600, 900_000);
       onChange({ ...response, image: await repo.storeAnswerImage(blob) });
     } catch (e) {
       setImageError(e instanceof Error ? e.message : String(e));
@@ -170,11 +181,10 @@ function FreeTextInput({
       ) : (
         !disabled && (
           <label className="btn btn-ghost btn-sm file-btn">
-            {uploading ? "Foto wird gespeichert …" : "📷 Foto der handschriftlichen Lösung anhängen"}
+            {uploading ? "Foto wird gespeichert …" : "📷 Foto oder Bild der Lösung anhängen"}
             <input
               type="file"
-              accept="image/*"
-              capture="environment"
+              accept="image/*,application/pdf"
               hidden
               onChange={(e) => {
                 const file = e.target.files?.[0];
@@ -185,6 +195,7 @@ function FreeTextInput({
           </label>
         )
       )}
+      {imageNote && <p className="muted small">{imageNote}</p>}
       {imageError && <p className="error-text">{imageError}</p>}
     </div>
   );

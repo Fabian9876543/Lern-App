@@ -165,6 +165,12 @@ Beide Varianten entstehen aus demselben Code (`src/targets/artifact` bzw. `src/t
 - **Testseite aufgeräumt:** Oben stehen nur Art, Anzahl der Fragen, Punkte und Datum, darunter gleich „Test starten“.
   Ganz unten stehen zugeklappt die „Hinweise von Claude“ (z. B. zu fehlenden Lösungen; nummerierte Hinweise als Liste)
   und die „Quellen“ (nach Ordnern, zum Ansehen antippen) – bei Bedarf aufklappen.
+- **Mit zwei Geräten gleichzeitig (claude.ai-Version):** Test z. B. am MacBook offen lassen und die Aufgaben am iPad
+  lösen – am iPad die Lern-App öffnen (gleiches Claude-Konto) und auf der Startseite „Fortsetzen“ tippen. Ein Foto oder
+  Bild der Lösung (aus Fotos, Dateien oder Kamera; bei PDFs, z. B. aus GoodNotes, die erste Seite) erscheint nach einem
+  Moment auch am MacBook („↻ Vom anderen Gerät übernommen“) und kann dort geprüft werden. Text, Bewertung, die aktuelle
+  Frage und das Beenden des Tests werden ebenso abgeglichen; was man auf einem Gerät gerade tippt, wird dabei nicht
+  überschrieben. In der Web-Version liegen die Daten nur im jeweiligen Browser – dort gibt es keinen Abgleich.
 - Backup als JSON-Datei exportieren/importieren
 - **„Zurück“-Knopf** oben in der Kopfleiste (bleibt beim Scrollen sichtbar): führt zur vorherigen Seite – auch in
   claude.ai, wo es keinen Browser-Verlauf für die App gibt – und stellt dort die Scroll-Position wieder her. Gelöschte

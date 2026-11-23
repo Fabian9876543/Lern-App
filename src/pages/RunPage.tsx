@@ -7,6 +7,7 @@ import QuestionMeta from "../components/QuestionMeta";
 import { confirmDialog } from "../components/Dialogs";
 import { attemptQuestions, evaluateAnswer, selfGrade } from "../lib/attempts";
 import { onAttemptFinished } from "../lib/plans";
+import { mergeResponse, sameResponse } from "../lib/draftSync";
 import { hasAnswer } from "../lib/grading";
 import { navigate, useLeaveGuard } from "../router";
 import { getState, repo, useStore } from "../store/store";
@@ -46,15 +47,39 @@ function Runner({ attempt, test }: { attempt: Attempt; test: Test }) {
   const [checking, setChecking] = useState(false);
   const [submitting, setSubmitting] = useState<{ done: number; total: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [syncedAt, setSyncedAt] = useState(0);
   const saveTimer = useRef<number | undefined>(undefined);
+  /** Stand, den dieses Gerät zuletzt gespeichert bzw. geladen hat (für den Abgleich mit anderen Geräten). */
+  const baseRef = useRef<AnswerResponse>(record?.response ?? {});
 
   // Beim Wechsel der Frage den gespeicherten Stand laden.
   useEffect(() => {
-    setDraft(attempt.answers[question?.id ?? ""]?.response ?? {});
+    const stored = attempt.answers[question?.id ?? ""]?.response ?? {};
+    baseRef.current = stored;
+    setDraft(stored);
     setShowHint(!!attempt.answers[question?.id ?? ""]?.usedHint);
     setError(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [question?.id]);
+
+  // Auf einem anderen Gerät geändert (z. B. Foto am iPad hochgeladen)? Übernehmen, eigene Eingaben behalten.
+  const stored = record?.response;
+  useEffect(() => {
+    const remote = stored ?? {};
+    if (sameResponse(remote, baseRef.current)) return;
+    const merged = mergeResponse(baseRef.current, draft, remote);
+    baseRef.current = remote;
+    if (!sameResponse(merged, draft)) {
+      setDraft(merged);
+      setSyncedAt(Date.now());
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stored]);
+  useEffect(() => {
+    if (!syncedAt) return;
+    const timer = window.setTimeout(() => setSyncedAt(0), 5000);
+    return () => window.clearTimeout(timer);
+  }, [syncedAt]);
 
   useEffect(() => () => window.clearTimeout(saveTimer.current), []);
 
@@ -79,35 +104,26 @@ function Runner({ attempt, test }: { attempt: Attempt; test: Test }) {
     repo.updateAttempt(attempt.id, (a) => ({ ...a, answers: { ...a.answers, [qid]: rec } }));
   }
 
+  /** Entwurf speichern – aber nie über eine Antwort, die (z. B. auf dem anderen Gerät) schon geprüft ist. */
+  function writeDraft(qid: string, response: AnswerResponse, maxScore: number) {
+    const latest = getState().attempts.find((a) => a.id === attempt.id)?.answers[qid];
+    if (latest?.checked) return;
+    if (qid === question?.id) baseRef.current = response;
+    writeAnswer(qid, { response, checked: false, score: 0, maxScore, verdict: null, usedHint: showHint });
+  }
+
   function onDraftChange(r: AnswerResponse) {
     setDraft(r);
     // Entwurf verzögert speichern, damit man später fortsetzen kann.
     window.clearTimeout(saveTimer.current);
     const qid = question.id;
-    saveTimer.current = window.setTimeout(() => {
-      writeAnswer(qid, {
-        response: r,
-        checked: false,
-        score: 0,
-        maxScore: question.points,
-        verdict: null,
-        usedHint: showHint,
-      });
-    }, 300);
+    const points = question.points;
+    saveTimer.current = window.setTimeout(() => writeDraft(qid, r, points), 300);
   }
 
   function flushDraft() {
     window.clearTimeout(saveTimer.current);
-    if (!checked && hasAnswer(question, draft)) {
-      writeAnswer(question.id, {
-        response: draft,
-        checked: false,
-        score: 0,
-        maxScore: question.points,
-        verdict: null,
-        usedHint: showHint,
-      });
-    }
+    if (!checked && hasAnswer(question, draft) && !sameResponse(draft, stored ?? {})) writeDraft(question.id, draft, question.points);
   }
 
   function goTo(i: number) {
@@ -267,6 +283,11 @@ function Runner({ attempt, test }: { attempt: Attempt; test: Test }) {
         <Markdown className="prompt">{question.prompt}</Markdown>
 
         <AnswerInput question={question} response={draft} onChange={onDraftChange} disabled={locked || checking} reveal={locked} />
+        {syncedAt > 0 && (
+          <p className="muted small sync-note" role="status">
+            ↻ Vom anderen Gerät übernommen
+          </p>
+        )}
 
         {question.hint && !locked && !isExam && (
           <div>

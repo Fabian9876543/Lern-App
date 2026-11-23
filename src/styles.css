@@ -2596,3 +2596,24 @@ body:has(.mark-bar) .container {
   line-height: 1.55;
   overflow-wrap: anywhere;
 }
+
+/* Antwort vom anderen Gerät übernommen (z. B. Foto am iPad) */
+.sync-note {
+  color: var(--primary);
+  margin: 0;
+  animation: sync-fade 5s ease-out forwards;
+}
+@keyframes sync-fade {
+  0%,
+  80% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sync-note {
+    animation: none;
+  }
+}
