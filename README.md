@@ -162,6 +162,9 @@ Beide Varianten entstehen aus demselben Code (`src/targets/artifact` bzw. `src/t
   (am besten mit Hinweisen wie „Uni, 1. Semester, Klausur 90 Min.“) und erstellt Übungstests, Wiederholungen,
   Probeklausur und Lernzettel aus seinem Fachwissen. Die App weist darauf hin, dass das vom Stoff der eigenen
   Veranstaltung abweichen kann.
+- **Testseite aufgeräumt:** Oben stehen nur Art, Anzahl der Fragen, Punkte und Datum, darunter gleich „Test starten“.
+  Hinweise von Claude (z. B. zu fehlenden Lösungen) und die Quellen – zugeklappt, nach Ordnern, zum Ansehen antippen –
+  stehen ganz unten.
 - Backup als JSON-Datei exportieren/importieren
 - **„Zurück“-Knopf** oben in der Kopfleiste (bleibt beim Scrollen sichtbar): führt zur vorherigen Seite – auch in
   claude.ai, wo es keinen Browser-Verlauf für die App gibt – und stellt dort die Scroll-Position wieder her. Gelöschte

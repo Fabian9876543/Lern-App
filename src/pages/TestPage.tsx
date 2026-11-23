@@ -3,6 +3,9 @@ import { useState } from "react";
 import { describeCorrectAnswer } from "../ai/normalize";
 import { confirmDialog, promptDialog } from "../components/Dialogs";
 import Markdown from "../components/Markdown";
+import MaterialList from "../components/MaterialList";
+import MaterialPreview from "../components/MaterialPreview";
+import MaterialRow from "../components/MaterialRow";
 import NotesCallout from "../components/NotesCallout";
 import QuestionEditor from "../components/QuestionEditor";
 import QuestionMeta from "../components/QuestionMeta";
@@ -11,7 +14,7 @@ import { newId } from "../lib/ids";
 import { splitTest } from "../lib/testParts";
 import { navigate } from "../router";
 import { repo, useStore } from "../store/store";
-import type { AttemptMode, Question } from "../types";
+import type { AttemptMode, Material, Question } from "../types";
 
 export default function TestPage({ testId }: { testId: string }) {
   const store = useStore();
@@ -21,6 +24,7 @@ export default function TestPage({ testId }: { testId: string }) {
   const [editing, setEditing] = useState<Question | null>(null);
   const [regenerating, setRegenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [preview, setPreview] = useState<Material | null>(null);
 
   if (!test) {
     return (
@@ -133,7 +137,6 @@ export default function TestPage({ testId }: { testId: string }) {
         <p className="muted small">
           {test.mode === "exact" ? "Originalaufgaben" : "Neue Aufgaben"} · {test.questions.length} Fragen ·{" "}
           {totalPoints} Punkte · erstellt {formatDate(test.createdAt)}
-          {materials.length > 0 && <> · aus {materials.map((m) => m.name).join(", ")}</>}
           {test.materialIds.length === 0 && test.mode === "generated" && <> · aus Claudes Fachwissen (ohne Material)</>}
         </p>
       </div>
@@ -146,8 +149,6 @@ export default function TestPage({ testId }: { testId: string }) {
           </a>
         </div>
       )}
-      {test.notes && <NotesCallout notes={test.notes} />}
-
       <section className="card stack-sm">
         {inProgress && (
           <div className="callout row-between">
@@ -284,7 +285,35 @@ export default function TestPage({ testId }: { testId: string }) {
         ))}
       </section>
 
+      {/* Hinweise und Quellen stehen am Ende, damit oben gleich „Test starten“ kommt. */}
+      {test.notes && <NotesCallout notes={test.notes} />}
+
+      {test.materialIds.length > 0 && (
+        <details className="card note-sources">
+          <summary>
+            <strong>Quellen</strong>
+            <span className="muted small">
+              {" · "}
+              {test.materialIds.length === 1 ? "aus 1 Datei" : `aus ${test.materialIds.length} Dateien`}
+              {test.materialIds.length > materials.length && ` (${test.materialIds.length - materials.length} inzwischen gelöscht)`}
+            </span>
+          </summary>
+          <div className="stack-sm note-sources-body">
+            <p className="muted small">Aus diesem Material hat Claude den Test erstellt. Antippen zum Ansehen.</p>
+            {materials.length > 0 ? (
+              <MaterialList
+                materials={materials}
+                row={(m) => <MaterialRow key={m.id} material={m} onPreview={setPreview} actions={false} role={false} />}
+              />
+            ) : (
+              <p className="muted small">Das Material ist inzwischen gelöscht.</p>
+            )}
+          </div>
+        </details>
+      )}
+
       {editing && <QuestionEditor question={editing} onSave={saveQuestion} onClose={() => setEditing(null)} />}
+      {preview && <MaterialPreview material={preview} onClose={() => setPreview(null)} />}
     </div>
   );
 }
