@@ -155,7 +155,7 @@ export function setTaskStatus(planId: string, taskId: string, status: PlanTask["
 
 // ---------- Tests zum Plan ----------
 
-function planMaterials(plan: StudyPlan) {
+export function planMaterials(plan: StudyPlan) {
   return getState().materials.filter((m) => plan.materialIds.includes(m.id));
 }
 
@@ -422,8 +422,10 @@ export async function createStudyNote(
     signal: opts.signal,
     onText: opts.onText,
   });
+  // Neu geschrieben: dieselbe ID, damit markierte Stellen am Lernzettel bleiben.
+  const previous = noteFor(getState().notes, planId, topicId);
   const note: StudyNote = {
-    id: newId(),
+    id: previous?.id ?? newId(),
     subjectId: plan.subjectId,
     planId,
     topicId,

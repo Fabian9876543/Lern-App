@@ -103,6 +103,15 @@ Beide Varianten entstehen aus demselben Code (`src/targets/artifact` bzw. `src/t
 - **Lernzettel:** Zu jeder Lern-Aufgabe im Plan schreibt Claude auf Knopfdruck einen Lernzettel – das Wichtigste,
   ein Vorgehen für typische Aufgaben, vorgerechnete Beispiele, typische Fehler und ein kurzer Selbstcheck. Er wird
   gespeichert und ist auch über den Themenstand erreichbar.
+- **Stellen im Lernzettel erklären lassen:** Text markieren (am Handy lange drücken), dann unten „Bin unsicher“ oder
+  „Weiß ich nicht mehr“ wählen. Claude erklärt genau diese Stelle – kurz aufgefrischt bzw. von Grund auf mit Beispiel
+  und Merkhilfe –, zuerst aus dem Material des Lernzettels (mit Fundstelle), sonst aus seinem Fachwissen; in der
+  Web-Version sucht Claude bei Bedarf auch im Internet und verlinkt die Seiten. Unter jeder Antwort steht, worauf sie
+  sich stützt („Aus deinem Material“, „… ergänzt mit Claudes Wissen“, „Nicht aus deinem Material“). Danach kann man
+  nachfragen („Einfacher erklären“, „Noch ein Beispiel“, „Typische Prüfungsaufgabe“ oder eine eigene Frage). Die
+  Stellen bleiben gelb bzw. rot im Lernzettel, sind gespeichert und stehen unter „Markierte Stellen“; Antippen öffnet
+  die Erklärung wieder. Beim Neuschreiben bleiben die Markierungen erhalten, und PDF bzw. Markdown enthalten die
+  Erklärungen als Anhang. Die Erklärung läuft weiter, auch wenn man das Fenster schließt.
 - **Lernplan ohne Material:** Ohne hochgeladenes Material schlägt Claude die typischen Prüfungsthemen des Fachs vor
   (am besten mit Hinweisen wie „Uni, 1. Semester, Klausur 90 Min.“) und erstellt Übungstests, Wiederholungen,
   Probeklausur und Lernzettel aus seinem Fachwissen. Die App weist darauf hin, dass das vom Stoff der eigenen
@@ -172,7 +181,10 @@ wählen.
 - Web-Version: Der API-Schlüssel liegt nur im Browser (localStorage) und wird ausschließlich an `api.anthropic.com` gesendet.
   Nutze die App deshalb nur auf deinem eigenen Gerät.
 - Materialien werden nur dann an Claude geschickt, wenn du einen Test, die Themen eines Lernplans oder einen Lernzettel
-  erstellen lässt – und beim automatischen Benennen ein Auszug der Datei.
+  erstellen oder eine markierte Stelle erklären lässt – und beim automatischen Benennen ein Auszug der Datei.
+- Web-Version: Beim Erklären markierter Stellen kann Claude im Internet suchen (über die Websuche der Claude-API,
+  höchstens 3 Suchen pro Erklärung, kostet extra). Ist sie für dein API-Konto nicht freigeschaltet, erklärt Claude ohne
+  Suche.
 
 ## Entwicklung
 

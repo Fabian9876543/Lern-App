@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from "react";
 import { backend } from "@platform-impl";
-import type { Attempt, Material, StudyNote, StudyPlan, Subject, Test } from "../types";
+import type { Attempt, Material, NoteMark, StudyNote, StudyPlan, Subject, Test } from "../types";
 import { TABLES, type StorageMode, type TableName, type Tables } from "./types";
 
 /**
@@ -19,6 +19,7 @@ export interface StoreState {
   attempts: Attempt[];
   plans: StudyPlan[];
   notes: StudyNote[];
+  marks: NoteMark[];
 }
 
 let state: StoreState = {
@@ -31,6 +32,7 @@ let state: StoreState = {
   attempts: [],
   plans: [],
   notes: [],
+  marks: [],
 };
 const listeners = new Set<() => void>();
 const loaded = new Set<TableName>();
@@ -152,6 +154,13 @@ function removeLocal(table: TableName, ids: string[]) {
   ids.forEach((id) => schedule(table, id, null));
 }
 
+/** Löscht Lernzettel samt ihren markierten Stellen. */
+function removeNotes(ids: string[]) {
+  const set = new Set(ids);
+  removeLocal("marks", state.marks.filter((m) => set.has(m.noteId)).map((m) => m.id));
+  removeLocal("notes", ids);
+}
+
 function find<T extends TableName>(table: T, id: string): Tables[T] | undefined {
   return (state[table] as Tables[T][]).find((r) => r.id === id);
 }
@@ -180,6 +189,7 @@ export const repo = {
     const materials = state.materials.filter((m) => m.subjectId === id);
     materials.forEach(deleteContent);
     removeLocal("attempts", state.attempts.filter((a) => a.subjectId === id).map((a) => a.id));
+    removeLocal("marks", state.marks.filter((m) => m.subjectId === id).map((m) => m.id));
     removeLocal("notes", state.notes.filter((n) => n.subjectId === id).map((n) => n.id));
     removeLocal("plans", state.plans.filter((p) => p.subjectId === id).map((p) => p.id));
     removeLocal("tests", state.tests.filter((t) => t.subjectId === id).map((t) => t.id));
@@ -255,7 +265,7 @@ export const repo = {
     const testIds = state.tests.filter((t) => t.planId === id).map((t) => t.id);
     removeLocal("attempts", state.attempts.filter((a) => testIds.includes(a.testId)).map((a) => a.id));
     removeLocal("tests", testIds);
-    removeLocal("notes", state.notes.filter((n) => n.planId === id).map((n) => n.id));
+    removeNotes(state.notes.filter((n) => n.planId === id).map((n) => n.id));
     removeLocal("plans", [id]);
   },
 
@@ -263,7 +273,7 @@ export const repo = {
   saveNote(n: StudyNote) {
     // Zu einem Lernplan-Thema gibt es höchstens einen Lernzettel.
     if (n.planId && n.topicId) {
-      removeLocal("notes", state.notes.filter((x) => x.planId === n.planId && x.topicId === n.topicId && x.id !== n.id).map((x) => x.id));
+      removeNotes(state.notes.filter((x) => x.planId === n.planId && x.topicId === n.topicId && x.id !== n.id).map((x) => x.id));
     }
     upsert("notes", n);
   },
@@ -272,7 +282,18 @@ export const repo = {
     if (n) upsert("notes", { ...n, ...patch });
   },
   deleteNote(id: string) {
-    removeLocal("notes", [id]);
+    removeNotes([id]);
+  },
+
+  saveMark(m: NoteMark) {
+    upsert("marks", m);
+  },
+  updateMark(id: string, fn: (m: NoteMark) => NoteMark) {
+    const m = find("marks", id);
+    if (m) upsert("marks", fn(m));
+  },
+  deleteMark(id: string) {
+    removeLocal("marks", [id]);
   },
 
   clearAll() {

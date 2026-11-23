@@ -1,4 +1,4 @@
-import type { Difficulty, GenerationSettings, NoteLength, Question, QuestionType } from "../types";
+import type { Difficulty, GenerationSettings, MarkLevel, NoteLength, Question, QuestionType } from "../types";
 
 export const TYPE_LABELS: Record<QuestionType, string> = {
   single_choice: "Single Choice",
@@ -400,4 +400,83 @@ export function splitNoteTitle(text: string): { title: string | null; body: stri
   const m = /^#\s+(.+)\n?/.exec(cleaned);
   if (!m) return { title: null, body: cleaned };
   return { title: m[1].replace(/[*_`#]/g, "").trim().slice(0, 100) || null, body: cleaned.slice(m[0].length).trim() };
+}
+
+// ---------- Markierte Stelle im Lernzettel erklären ----------
+
+export function explainSystemPrompt(opts: { webSearch: boolean }): string {
+  return `Du bist ein geduldiger, genauer Tutor. Eine lernende Person arbeitet mit ihrem Lernzettel und hat eine Stelle markiert, die sie nicht mehr oder nicht mehr genau weiß. Erkläre ihr genau diese Stelle so, dass sie sie danach versteht und behält.
+
+Woher dein Wissen kommt:
+- Stütze dich zuerst auf das Material der lernenden Person, falls beigefügt: seine Begriffe, Definitionen, Schreibweisen und Vorgehensweisen. Nenne die Fundstelle knapp in Klammern, z. B. (Skript, S. 14) oder (Blatt 3, Aufgabe 2). Erfinde keine Fundstellen.
+- Steht es dort nicht oder nicht ausreichend, ergänze aus deinem Fachwissen und sag das ausdrücklich, z. B. „Das steht so nicht in deinem Material: …“.${
+    opts.webSearch
+      ? "\n- Die Websuche nutzt du nur, wenn Material und Fachwissen nicht sicher reichen (z. B. aktuelle Zahlen, Gesetzesstände, sehr spezielle Fakten). Sag dann im Text, was aus dem Internet stammt. Kündige die Suche nicht an."
+      : ""
+  }
+- Ist der Lernzettel an der Stelle falsch oder missverständlich, sag das freundlich und stell es richtig.
+
+Form:
+- Sprache: die des Lernzettels (meist Deutsch). Sprich die Person mit „du“ an.
+- Markdown; Formeln in LaTeX mit $...$ (im Text) und $$...$$ (abgesetzt).
+- Fang direkt mit der Erklärung an – keine Begrüßung, keine Einleitung wie „Gute Frage“, keine Wiederholung der markierten Stelle, kein Schlusswort.
+- Keine Überschriften mit # oder ##; gliedere mit kurzen Absätzen, Aufzählungen und **fett gesetzten** Stichworten.
+- Erkläre nur diese Stelle und das, was man direkt dafür braucht – nicht den ganzen Lernzettel.
+- Prüfe Rechnungen und Beispiele sorgfältig.
+
+Letzte Zeile – allein in der Zeile und genau in dieser Form:
+GRUNDLAGE: <Liste>
+Die Liste enthält eines oder mehrere der Wörter „material“ (aus dem Material der Person), „wissen“ (aus deinem Fachwissen)${
+    opts.webSearch ? " und „internet“ (aus der Websuche)" : ""
+  }, durch Komma getrennt – z. B. „GRUNDLAGE: material, wissen“.`;
+}
+
+const EXPLAIN_LEVEL: Record<MarkLevel, string> = {
+  forgot: `Die Person weiß das nicht mehr. Erkläre es von Grund auf:
+1. **Kurz gesagt:** worum es geht, in einem Satz.
+2. Die Erklärung Schritt für Schritt – mit der Idee dahinter, nicht nur der Regel. Erkläre Fachbegriffe, die dafür nötig sind.
+3. **Beispiel:** ein konkretes, vollständig durchgerechnetes bzw. ausformuliertes Beispiel.
+4. **Merkhilfe:** eine Eselsbrücke oder die typische Falle.
+Umfang: etwa 150 bis 350 Wörter.`,
+  unsure: `Die Person weiß es ungefähr, ist sich aber unsicher. Frisch es kurz und genau auf:
+- die Kernaussage präzise in 2 bis 4 Sätzen,
+- was man leicht verwechselt oder vergisst,
+- ein kurzes Beispiel.
+Umfang: höchstens etwa 150 Wörter.`,
+};
+
+/** Die eigentliche Bitte um Erklärung: Lernzettel, markierte Stelle, gewünschte Tiefe. */
+export function buildExplainTask(params: {
+  subjectName: string;
+  noteTitle: string;
+  noteContent: string;
+  quote: string;
+  level: MarkLevel;
+  hasMaterials: boolean;
+}): string {
+  return [
+    params.subjectName ? `Fach: „${params.subjectName}“` : "",
+    `Lernzettel „${params.noteTitle}“:\n<lernzettel>\n${params.noteContent.trim()}\n</lernzettel>`,
+    `Markierte Stelle:\n<markiert>\n${params.quote.trim()}\n</markiert>`,
+    EXPLAIN_LEVEL[params.level],
+    params.hasMaterials
+      ? ""
+      : "Zu diesem Lernzettel liegt kein Material vor – erkläre aus deinem Fachwissen, wie der Stoff in diesem Fach üblicherweise gelehrt wird.",
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+}
+
+/** Eine Nachfrage der lernenden Person zur markierten Stelle. */
+export function buildExplainFollowUp(question: string): string {
+  return `Nachfrage zur markierten Stelle:\n<nachfrage>\n${question.trim()}\n</nachfrage>\n\nAntworte genau darauf – gleiche Regeln wie oben, eher kürzer, letzte Zeile wieder „GRUNDLAGE: …“.`;
+}
+
+/** Bisheriges Gespräch als Text (für Anfragen, die nur aus einem Text bestehen). */
+export function explainHistoryText(history: { role: "user" | "assistant"; content: string }[]): string {
+  if (history.length === 0) return "";
+  const turns = history.map((m) =>
+    m.role === "assistant" ? `<deine_antwort>\n${m.content.trim()}\n</deine_antwort>` : buildExplainFollowUp(m.content),
+  );
+  return `Bisheriges Gespräch zu dieser Stelle:\n\n${turns.join("\n\n")}`;
 }

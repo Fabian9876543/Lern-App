@@ -1,7 +1,18 @@
 import type { ComponentType } from "react";
 import type { Backend } from "../store/types";
 import type { TopicAnalysis } from "../ai/schemas";
-import type { AnswerResponse, GenerationSettings, Material, MaterialRole, NoteLength, Question, Test, Verdict } from "../types";
+import type {
+  AnswerResponse,
+  GenerationSettings,
+  MarkBasis,
+  MarkLevel,
+  Material,
+  MaterialRole,
+  NoteLength,
+  Question,
+  Test,
+  Verdict,
+} from "../types";
 
 export type GenerationPhase = "preparing" | "transcribing" | "analyzing" | "writing";
 
@@ -74,6 +85,31 @@ export interface MaterialNoteParams {
   onText?: (text: string) => void;
 }
 
+export interface ExplainParams {
+  subjectName: string;
+  noteTitle: string;
+  /** Der ganze Lernzettel (Markdown) als Zusammenhang. */
+  noteContent: string;
+  /** Markierte Stelle, Formeln als LaTeX. */
+  quote: string;
+  level: MarkLevel;
+  /** Material des Lernzettels; leer = aus Claudes Fachwissen. */
+  materials: Material[];
+  /** Bisheriges Gespräch zur Stelle; leer bei der ersten Erklärung, sonst endet es mit einer Nachfrage. */
+  history: { role: "user" | "assistant"; content: string }[];
+  signal?: AbortSignal;
+  /** Bisher geschriebener Text (für die Live-Anzeige). */
+  onText?: (text: string) => void;
+}
+
+export interface ExplainResult {
+  content: string;
+  basis: MarkBasis[] | undefined;
+  /** Seiten aus der Internetsuche. */
+  links?: { url: string; title: string }[];
+  model: string;
+}
+
 export interface AiGrade {
   score: number;
   verdict: Verdict;
@@ -98,6 +134,10 @@ export interface PlatformImpl {
   createStudyNote(params: StudyNoteParams): Promise<{ content: string; model: string }>;
   /** Schreibt einen Lernzettel (Markdown, mit Titel) direkt aus ausgewähltem Material. */
   createMaterialNote(params: MaterialNoteParams): Promise<{ title: string | null; content: string; model: string }>;
+  /** Erklärt eine markierte Stelle eines Lernzettels (und beantwortet Nachfragen dazu). */
+  explainPassage(params: ExplainParams): Promise<ExplainResult>;
+  /** Kann Claude beim Erklären im Internet suchen? */
+  canSearchWeb: boolean;
   /** Schlägt für ein Material mit nichtssagendem Dateinamen Name und Rolle vor. */
   suggestMaterialName(params: MaterialNameParams): Promise<{ name: string; role: MaterialRole | null }>;
   describeError(error: unknown): string;

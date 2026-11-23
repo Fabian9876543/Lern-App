@@ -29,7 +29,7 @@ export async function createMaterialNote(
   req: MaterialNoteRequest,
   opts: { signal?: AbortSignal; onText?: (text: string) => void } = {},
 ): Promise<StudyNote> {
-  const { materials, subjects, notes } = getState();
+  const { materials, subjects } = getState();
   const chosen = materials.filter((m) => req.materialIds.includes(m.id));
   if (chosen.length === 0) throw new Error("Das ausgewählte Material gibt es nicht mehr.");
   const subjectName = subjects.find((s) => s.id === req.subjectId)?.name ?? "";
@@ -41,7 +41,7 @@ export async function createMaterialNote(
     signal: opts.signal,
     onText: opts.onText,
   });
-  const previous = req.replaceId ? notes.find((n) => n.id === req.replaceId) : undefined;
+  const previous = req.replaceId ? getState().notes.find((n) => n.id === req.replaceId) : undefined;
   const note: StudyNote = {
     id: previous?.id ?? newId(),
     subjectId: req.subjectId,

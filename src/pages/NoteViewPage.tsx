@@ -7,7 +7,9 @@ import MaterialList from "../components/MaterialList";
 import MaterialPreview from "../components/MaterialPreview";
 import MaterialRow from "../components/MaterialRow";
 import NoteDownloads from "../components/NoteDownloads";
+import { MarkableNote } from "../components/NoteMarks";
 import { cancelNoteJob, clearNoteJob, startMaterialNote, useNoteJob } from "../lib/materialNotes";
+import { marksAppendix } from "../lib/noteMarks";
 import { navigate } from "../router";
 import { repo, useStore } from "../store/store";
 import type { Material } from "../types";
@@ -123,32 +125,34 @@ export default function NoteViewPage({ noteId }: { noteId: string }) {
           {job.text ? <Markdown className="study-note">{job.text}</Markdown> : <p className="muted small">Gleich geht's los.</p>}
         </section>
       ) : (
-        <>
-          <article className="card">
-            <Markdown className="study-note">{note.content}</Markdown>
-          </article>
-          <p className="muted small">
-            Von Claude aus deinem Material geschrieben · {new Date(note.createdAt).toLocaleDateString("de-DE")} · {note.model}
-          </p>
-          <div className="row-between">
-            <button
-              className="btn btn-ghost"
-              onClick={rewrite}
-              disabled={ai.state !== "ready" || sources.length === 0}
-              title={sources.length === 0 ? "Das Material ist gelöscht." : ""}
-            >
-              Neu schreiben
-            </button>
-            <NoteDownloads
-              title={note.topicName}
-              meta={[subject?.name, "Lernzettel", note.focus && `Schwerpunkt: ${note.focus}`, new Date(note.createdAt).toLocaleDateString("de-DE")]
-                .filter(Boolean)
-                .join(" · ")}
-              content={note.content}
-              pdfPrimary
-            />
-          </div>
-        </>
+        <MarkableNote note={note} hasMaterials={sources.length > 0}>
+          {(marks) => (
+            <>
+              <p className="muted small">
+                Von Claude aus deinem Material geschrieben · {new Date(note.createdAt).toLocaleDateString("de-DE")} · {note.model}
+              </p>
+              <div className="row-between">
+                <button
+                  className="btn btn-ghost"
+                  onClick={rewrite}
+                  disabled={ai.state !== "ready" || sources.length === 0}
+                  title={sources.length === 0 ? "Das Material ist gelöscht." : ""}
+                >
+                  Neu schreiben
+                </button>
+                <NoteDownloads
+                  title={note.topicName}
+                  meta={[subject?.name, "Lernzettel", note.focus && `Schwerpunkt: ${note.focus}`, new Date(note.createdAt).toLocaleDateString("de-DE")]
+                    .filter(Boolean)
+                    .join(" · ")}
+                  content={note.content}
+                  appendix={marksAppendix(marks)}
+                  pdfPrimary
+                />
+              </div>
+            </>
+          )}
+        </MarkableNote>
       )}
 
       {ids.length > 0 && (

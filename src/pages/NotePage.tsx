@@ -3,6 +3,8 @@ import { useEffect, useReducer, useRef, useState } from "react";
 import { confirmDialog } from "../components/Dialogs";
 import Markdown from "../components/Markdown";
 import NoteDownloads from "../components/NoteDownloads";
+import { MarkableNote } from "../components/NoteMarks";
+import { marksAppendix } from "../lib/noteMarks";
 import { formatMinutes } from "../lib/planner";
 import { createStudyNote, noteFor, planHasMaterials, setTaskStatus } from "../lib/plans";
 import { navigate, routeQuery } from "../router";
@@ -151,37 +153,41 @@ export default function NotePage({ planId, topicId }: { planId: string; topicId:
               </button>
             </div>
           )}
-          <article className="card">
-            <Markdown className="study-note">{note.content}</Markdown>
-          </article>
-          <p className="muted small">
-            {note.fromMaterial
-              ? "Von Claude aus deinem Material geschrieben."
-              : "Von Claude aus seinem Fachwissen geschrieben, ohne dein Material – kann vom Stoff deiner Veranstaltung abweichen."}{" "}
-            {new Date(note.createdAt).toLocaleDateString("de-DE")} · {note.model}
-            {note.topicName !== topic.name && <> · geschrieben für „{note.topicName}“</>}
-          </p>
-          <div className="row-between">
-            <div className="row-wrap">
-              <button className="btn btn-ghost" onClick={rewrite} disabled={ai.state === "unavailable"}>
-                Neu schreiben
-              </button>
-              <NoteDownloads
-                title={topic.name}
-                meta={[plan.title, "Lernzettel", new Date(note.createdAt).toLocaleDateString("de-DE")].join(" · ")}
-                content={note.content}
-              />
-            </div>
-            {task && task.status === "open" ? (
-              <button className="btn btn-primary" onClick={markLearned}>
-                Gelernt – abhaken ({formatMinutes(task.minutes)})
-              </button>
-            ) : (
-              <a className="btn btn-primary" href={`#/plan/${plan.id}`}>
-                Zurück zum Plan
-              </a>
+          <MarkableNote note={note} hasMaterials={withMaterial}>
+            {(marks) => (
+              <>
+                <p className="muted small">
+                  {note.fromMaterial
+                    ? "Von Claude aus deinem Material geschrieben."
+                    : "Von Claude aus seinem Fachwissen geschrieben, ohne dein Material – kann vom Stoff deiner Veranstaltung abweichen."}{" "}
+                  {new Date(note.createdAt).toLocaleDateString("de-DE")} · {note.model}
+                  {note.topicName !== topic.name && <> · geschrieben für „{note.topicName}“</>}
+                </p>
+                <div className="row-between">
+                  <div className="row-wrap">
+                    <button className="btn btn-ghost" onClick={rewrite} disabled={ai.state === "unavailable"}>
+                      Neu schreiben
+                    </button>
+                    <NoteDownloads
+                      title={topic.name}
+                      meta={[plan.title, "Lernzettel", new Date(note.createdAt).toLocaleDateString("de-DE")].join(" · ")}
+                      content={note.content}
+                      appendix={marksAppendix(marks)}
+                    />
+                  </div>
+                  {task && task.status === "open" ? (
+                    <button className="btn btn-primary" onClick={markLearned}>
+                      Gelernt – abhaken ({formatMinutes(task.minutes)})
+                    </button>
+                  ) : (
+                    <a className="btn btn-primary" href={`#/plan/${plan.id}`}>
+                      Zurück zum Plan
+                    </a>
+                  )}
+                </div>
+              </>
             )}
-          </div>
+          </MarkableNote>
         </>
       ) : (
         <section className="card stack-sm">

@@ -28,6 +28,13 @@
   --radius: 14px;
   --radius-sm: 9px;
   --shadow: 0 1px 2px rgba(20, 24, 50, 0.05), 0 4px 16px rgba(20, 24, 50, 0.05);
+  /* Markierungen im Lernzettel: unsicher = gelb, weiß ich nicht mehr = rot */
+  --mark-unsure: #fde68a;
+  --mark-unsure-line: #d97706;
+  --mark-unsure-text: #78350f;
+  --mark-forgot: #fecdd3;
+  --mark-forgot-line: #e11d48;
+  --mark-forgot-text: #881337;
   color-scheme: light;
 }
 
@@ -59,6 +66,12 @@
     --role-both: #c4b5fd;
     --role-both-bg: #2c2148;
     --shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+    --mark-unsure: #4d3d0d;
+    --mark-unsure-line: #fbbf24;
+    --mark-unsure-text: #fde68a;
+    --mark-forgot: #4c1d2a;
+    --mark-forgot-line: #fb7185;
+    --mark-forgot-text: #fecdd3;
     color-scheme: dark;
   }
 }
@@ -90,6 +103,12 @@
   --role-both: #c4b5fd;
   --role-both-bg: #2c2148;
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --mark-unsure: #4d3d0d;
+  --mark-unsure-line: #fbbf24;
+  --mark-unsure-text: #fde68a;
+  --mark-forgot: #4c1d2a;
+  --mark-forgot-line: #fb7185;
+  --mark-forgot-text: #fecdd3;
   color-scheme: dark;
 }
 
@@ -1603,6 +1622,270 @@ details.card[open] > summary {
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
+}
+
+/* ---------- Markierungen im Lernzettel ---------- */
+
+::highlight(lern-mark-unsure) {
+  background-color: var(--mark-unsure);
+  text-decoration: underline 2px var(--mark-unsure-line);
+  text-underline-offset: 3px;
+}
+::highlight(lern-mark-forgot) {
+  background-color: var(--mark-forgot);
+  text-decoration: underline 2px var(--mark-forgot-line);
+  text-underline-offset: 3px;
+}
+.mark-hint {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.45rem;
+}
+.mark-hint-icon {
+  flex: none;
+  margin-top: 0.12rem;
+}
+
+.mark-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 40;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  box-shadow: 0 -6px 24px rgba(10, 12, 25, 0.12);
+  padding: 0.7rem 16px calc(0.7rem + env(safe-area-inset-bottom));
+  user-select: none;
+  -webkit-user-select: none;
+}
+.mark-bar-inner {
+  max-width: 860px;
+  margin: 0 auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  position: relative;
+}
+.mark-bar-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1 1 16rem;
+  padding-right: 2.2rem;
+}
+.mark-bar-label {
+  font-weight: 600;
+  font-size: 0.92rem;
+}
+.mark-bar-quote {
+  color: var(--muted);
+  font-size: 0.86rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mark-bar-quote p {
+  display: inline;
+  margin: 0;
+}
+.mark-bar-quote p::before {
+  content: "„";
+}
+.mark-bar-quote p::after {
+  content: "“";
+}
+.mark-bar-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.mark-bar-warn {
+  color: var(--partial-text);
+  margin: 0;
+}
+.mark-bar-close {
+  position: absolute;
+  top: -0.2rem;
+  right: -0.3rem;
+}
+.mark-btn {
+  min-height: 2.5rem;
+  border-width: 1px;
+  border-style: solid;
+}
+.mark-btn-unsure {
+  background: var(--mark-unsure);
+  color: var(--mark-unsure-text);
+  border-color: var(--mark-unsure-line);
+}
+.mark-btn-forgot {
+  background: var(--mark-forgot);
+  color: var(--mark-forgot-text);
+  border-color: var(--mark-forgot-line);
+}
+.mark-btn:hover:not(:disabled) {
+  filter: brightness(0.96);
+}
+@media (max-width: 380px) {
+  .mark-bar-actions {
+    flex-wrap: nowrap;
+    width: 100%;
+  }
+  .mark-btn {
+    flex: 1 1 auto;
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+    font-size: 0.84rem;
+  }
+}
+/* Platz unten, damit die Leiste das Ende des Lernzettels nicht verdeckt */
+body:has(.mark-bar) .container {
+  padding-bottom: 9rem;
+}
+
+.mark-list h2 {
+  font-size: 1.05rem;
+  margin: 0;
+}
+.mark-items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.mark-item {
+  font: inherit;
+  color: var(--text);
+  width: 100%;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.6rem 0.8rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  border-left-width: 4px;
+  background: var(--surface);
+  cursor: pointer;
+}
+.mark-item:hover {
+  background: var(--surface-2);
+}
+.mark-item-unsure {
+  border-left-color: var(--mark-unsure-line);
+}
+.mark-item-forgot {
+  border-left-color: var(--mark-forgot-line);
+}
+.mark-item-quote {
+  overflow-wrap: anywhere;
+  max-height: 4.6em;
+  overflow: hidden;
+  line-height: 1.5;
+}
+.mark-item-quote p {
+  margin: 0;
+}
+.mark-item-meta {
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.mark-quote {
+  border-left: 4px solid;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  padding: 0.6rem 0.85rem;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.4rem;
+  background: var(--surface-2);
+}
+.mark-quote-unsure {
+  border-left-color: var(--mark-unsure-line);
+}
+.mark-quote-forgot {
+  border-left-color: var(--mark-forgot-line);
+}
+.mark-quote-text {
+  max-height: 9.5rem;
+  overflow-y: auto;
+  overflow-wrap: anywhere;
+  width: 100%;
+}
+.mark-quote-text p {
+  margin: 0;
+}
+.mark-quote-text p + p {
+  margin-top: 0.4em;
+}
+.mark-chip-unsure {
+  background: var(--mark-unsure);
+  color: var(--mark-unsure-text);
+}
+.mark-chip-forgot {
+  background: var(--mark-forgot);
+  color: var(--mark-forgot-text);
+}
+.mark-answer .study-note > :first-child {
+  margin-top: 0;
+}
+.mark-answer .study-note > :last-child {
+  margin-bottom: 0;
+}
+.mark-question {
+  align-self: flex-end;
+  max-width: 85%;
+  background: var(--primary-soft);
+  border-radius: var(--radius-sm);
+  padding: 0.5rem 0.8rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  overflow-wrap: anywhere;
+}
+.mark-basis {
+  align-self: flex-start;
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+}
+.mark-basis-material {
+  background: var(--correct-soft);
+  color: var(--correct-text);
+}
+.mark-basis-mixed {
+  background: var(--primary-soft);
+  color: var(--primary);
+}
+.mark-basis-other {
+  background: var(--partial-soft);
+  color: var(--partial-text);
+}
+.mark-links ul {
+  margin: 0.2rem 0 0;
+  padding-left: 1.2rem;
+}
+.mark-links a {
+  overflow-wrap: anywhere;
+}
+.mark-followup {
+  border-top: 1px solid var(--border);
+  padding-top: 0.9rem;
+}
+.mark-ask {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.5rem;
+}
+.mark-footer-start {
+  margin-right: auto;
 }
 
 /* ---------- Aufgaben-Details ---------- */

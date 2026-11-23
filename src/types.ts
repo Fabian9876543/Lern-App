@@ -227,3 +227,43 @@ export interface StudyNote {
   model: string;
   createdAt: number;
 }
+
+// ---------- Markierungen im Lernzettel ----------
+
+/** „unsure“: weiß es nicht mehr genau; „forgot“: weiß es nicht mehr. */
+export type MarkLevel = "unsure" | "forgot";
+
+/** Worauf sich eine Erklärung stützt. */
+export type MarkBasis = "material" | "wissen" | "internet";
+
+export interface MarkMessage {
+  /** "assistant": Erklärung von Claude; "user": Nachfrage der lernenden Person. */
+  role: "user" | "assistant";
+  content: string;
+  basis?: MarkBasis[];
+  /** Seiten aus der Internetsuche (nur Web-Version). */
+  links?: { url: string; title: string }[];
+  model?: string;
+  at: number;
+}
+
+/** Wiederfinden einer Stelle im angezeigten Text (wie W3C TextQuoteSelector). */
+export interface MarkAnchor {
+  exact: string;
+  prefix: string;
+  suffix: string;
+}
+
+/** Markierte Stelle eines Lernzettels mit Claudes Erklärungen (eigener Datensatz, damit der Lernzettel klein bleibt). */
+export interface NoteMark {
+  id: string;
+  noteId: string;
+  subjectId: string;
+  /** Markierter Text, Formeln als LaTeX ($…$) – für die Anzeige und für Claude. */
+  quote: string;
+  anchor: MarkAnchor;
+  level: MarkLevel;
+  /** Gespräch zur Stelle: Erklärung, Nachfragen, weitere Antworten. */
+  messages: MarkMessage[];
+  createdAt: number;
+}

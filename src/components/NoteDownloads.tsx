@@ -18,19 +18,22 @@ export default function NoteDownloads({
   title,
   meta,
   content,
+  appendix = "",
   pdfPrimary = false,
 }: {
   title: string;
   /** Zeile unter dem Titel im PDF */
   meta?: string;
   content: string;
+  /** Wird angehängt, z. B. die markierten Stellen mit Claudes Erklärungen */
+  appendix?: string;
   /** PDF als Hauptknopf (sonst beide dezent) */
   pdfPrimary?: boolean;
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const name = noteFileName(title);
-  const body = withoutLeadingTitle(content, title);
+  const body = [withoutLeadingTitle(content, title), appendix.trim()].filter(Boolean).join("\n\n---\n\n");
 
   async function pdf() {
     setBusy(true);

@@ -18,7 +18,10 @@ import {
   buildStudyNoteInstruction,
   buildTaskInstruction,
   buildTopicInstruction,
+  buildExplainTask,
   cleanStudyNote,
+  explainHistoryText,
+  explainSystemPrompt,
   generationSystemPrompt,
   gradingUserText,
   splitTranscript,
@@ -34,10 +37,13 @@ import { byteLength, makeExcerpt, wrapMaterial, type ExcerptStrategy, type Sourc
 import { TIERS, getSettings } from "../../settings";
 import type { AnswerResponse, Material, Question, Test } from "../../types";
 import { formatLongDate } from "../../lib/planner";
+import { parseExplanation } from "../../lib/noteMarks";
 import type { MaterialRole } from "../../types";
 import type {
   AiGrade,
   AiStatus,
+  ExplainParams,
+  ExplainResult,
   GenerateParams,
   GenerationProgress,
   MaterialNameParams,
@@ -463,6 +469,38 @@ export async function createMaterialNote(
   if (!cleaned) throw new AiResponseError("Claude hat keinen Lernzettel geliefert. Bitte erneut versuchen.");
   const content = note ? `${cleaned}\n\n---\n\n*Hinweis der App: ${note}*` : cleaned;
   return { title, content, model: `claude.ai – ${TIERS.find((t) => t.id === tier)?.label ?? tier}` };
+}
+
+// ---------- Markierte Stelle erklären ----------
+
+export async function explainPassage(params: ExplainParams): Promise<ExplainResult> {
+  const { materials, signal, onText, history } = params;
+  const sample = await requireSample();
+  const tier = getSettings().generationTier;
+  const prepared = await prepareMaterials(sample, materials, { signal });
+  const task = buildExplainTask({ ...params, hasMaterials: materials.length > 0 });
+  const past = explainHistoryText(history);
+  const closing = past
+    ? "Beantworte jetzt die letzte Nachfrage der lernenden Person – gleiche Regeln, letzte Zeile wieder „GRUNDLAGE: …“."
+    : "";
+  const lastQuestion = [...history].reverse().find((m) => m.role === "user")?.content ?? "";
+  const { prompt } = await promptWithMaterials(
+    sample,
+    prepared,
+    (section) => [`${explainSystemPrompt({ webSearch: false })}\n\n${section}${task}`, past, closing].filter(Boolean).join("\n\n"),
+    { kind: "relevance", query: `${params.quote} ${lastQuestion}` },
+  );
+  await checkLimits(sample, prompt, prepared.images.length);
+  const result = await sample(prompt, {
+    modelTier: tier,
+    images: prepared.images.length ? prepared.images : undefined,
+    cache: false,
+    signal,
+    onText: ({ text }) => onText?.(text),
+  });
+  const { content, basis } = parseExplanation(result.text);
+  if (!content) throw new AiResponseError("Claude hat keine Erklärung geliefert. Bitte erneut versuchen.");
+  return { content, basis, model: `claude.ai – ${TIERS.find((t) => t.id === tier)?.label ?? tier}` };
 }
 
 // ---------- Material benennen ----------

@@ -5,6 +5,7 @@ import type { AiStatus, PlatformImpl } from "../types";
 import AiSettings from "./AiSettings";
 import { analyzeTopics } from "./analyzeTopics";
 import { describeError } from "./client";
+import { explainPassage } from "./explain";
 import { generateTest } from "./generateTest";
 import { gradeWithAi } from "./gradeAnswer";
 import { createMaterialNote, createStudyNote } from "./studyNote";
@@ -23,6 +24,8 @@ const impl: PlatformImpl = {
   analyzeTopics,
   createStudyNote,
   createMaterialNote,
+  explainPassage,
+  canSearchWeb: true,
   suggestMaterialName,
   describeError,
   aiStatus: () => statusFor(getSettings().apiKey),
