@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from "react";
 import { backend } from "@platform-impl";
-import type { Attempt, Material, NoteMark, StudyNote, StudyPlan, Subject, Test } from "../types";
+import type { Attempt, ExamAnalysis, Material, NoteMark, StudyNote, StudyPlan, Subject, Test } from "../types";
 import { TABLES, type StorageMode, type TableName, type Tables } from "./types";
 
 /**
@@ -20,6 +20,7 @@ export interface StoreState {
   plans: StudyPlan[];
   notes: StudyNote[];
   marks: NoteMark[];
+  analyses: ExamAnalysis[];
 }
 
 let state: StoreState = {
@@ -33,6 +34,7 @@ let state: StoreState = {
   plans: [],
   notes: [],
   marks: [],
+  analyses: [],
 };
 const listeners = new Set<() => void>();
 const loaded = new Set<TableName>();
@@ -190,6 +192,7 @@ export const repo = {
     materials.forEach(deleteContent);
     removeLocal("attempts", state.attempts.filter((a) => a.subjectId === id).map((a) => a.id));
     removeLocal("marks", state.marks.filter((m) => m.subjectId === id).map((m) => m.id));
+    removeLocal("analyses", state.analyses.filter((a) => a.subjectId === id).map((a) => a.id));
     removeLocal("notes", state.notes.filter((n) => n.subjectId === id).map((n) => n.id));
     removeLocal("plans", state.plans.filter((p) => p.subjectId === id).map((p) => p.id));
     removeLocal("tests", state.tests.filter((t) => t.subjectId === id).map((t) => t.id));
@@ -294,6 +297,18 @@ export const repo = {
   },
   deleteMark(id: string) {
     removeLocal("marks", [id]);
+  },
+
+  saveAnalysis(a: ExamAnalysis) {
+    upsert("analyses", a);
+  },
+  updateAnalysis(id: string, patch: Partial<ExamAnalysis>) {
+    const a = find("analyses", id);
+    if (a) upsert("analyses", { ...a, ...patch });
+  },
+  /** Löscht die Analyse; die Übungstests dazu bleiben als normale Tests erhalten. */
+  deleteAnalysis(id: string) {
+    removeLocal("analyses", [id]);
   },
 
   clearAll() {

@@ -6,7 +6,7 @@ import MaterialList, { type MaterialSelection } from "../components/MaterialList
 import MaterialPreview from "../components/MaterialPreview";
 import MaterialRow from "../components/MaterialRow";
 import MaterialUpload from "../components/MaterialUpload";
-import { splitMaterials } from "../lib/materialNames";
+import { splitMaterials, usedLabel } from "../lib/materialNames";
 import { cancelNoteJob, clearNoteJob, startMaterialNote, useNoteJob } from "../lib/materialNotes";
 import { navigate, routeQuery } from "../router";
 import { useStore } from "../store/store";
@@ -23,6 +23,7 @@ export default function NewNotePage({ subjectId }: { subjectId: string }) {
     materials,
     store.tests.filter((t) => t.subjectId === subjectId),
     store.plans.filter((p) => p.subjectId === subjectId),
+    store.analyses.filter((a) => a.subjectId === subjectId),
   );
   const jobKey = `new:${subjectId}`;
   const job = useNoteJob(jobKey);
@@ -129,13 +130,13 @@ export default function NewNotePage({ subjectId }: { subjectId: string }) {
         )}
         {used.length > 0 && (
           <details className="used-materials" open={used.some((u) => selected.has(u.material.id))}>
-            <summary className="small">Material aus früheren Tests und Lernplänen ({used.length})</summary>
+            <summary className="small">Schon verwendetes Material ({used.length})</summary>
             <MaterialList
               materials={used.map((u) => u.material)}
               selection={selection}
               row={(m) => {
                 const u = used.find((x) => x.material.id === m.id)!;
-                return row(m, `aus „${u.tests[0]?.title ?? u.plans[0].title}“`);
+                return row(m, usedLabel(u));
               }}
             />
           </details>

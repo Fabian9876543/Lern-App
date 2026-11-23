@@ -1,6 +1,6 @@
 import type { ComponentType } from "react";
 import type { Backend } from "../store/types";
-import type { TopicAnalysis } from "../ai/schemas";
+import type { GeneratedExamAnalysis, TopicAnalysis } from "../ai/schemas";
 import type {
   AnswerResponse,
   GenerationSettings,
@@ -85,6 +85,16 @@ export interface MaterialNoteParams {
   onText?: (text: string) => void;
 }
 
+export interface ExamAnalysisParams {
+  subjectName: string;
+  /** Korrigierte Klausur und ggf. Aufgabenblatt, Lösung, Erwartungshorizont. */
+  materials: Material[];
+  /** Hinweise der lernenden Person (z. B. „Note 4, Rechenwege zu knapp“). */
+  remarks: string;
+  signal?: AbortSignal;
+  onProgress?: (p: GenerationProgress) => void;
+}
+
 export interface ExplainParams {
   subjectName: string;
   noteTitle: string;
@@ -134,6 +144,8 @@ export interface PlatformImpl {
   createStudyNote(params: StudyNoteParams): Promise<{ content: string; model: string }>;
   /** Schreibt einen Lernzettel (Markdown, mit Titel) direkt aus ausgewähltem Material. */
   createMaterialNote(params: MaterialNoteParams): Promise<{ title: string | null; content: string; model: string }>;
+  /** Wertet eine korrigierte Klausur aus: Fehler je Aufgabe, Schwachstellen, Fehlerarten. */
+  analyzeExam(params: ExamAnalysisParams): Promise<{ analysis: GeneratedExamAnalysis; model: string }>;
   /** Erklärt eine markierte Stelle eines Lernzettels (und beantwortet Nachfragen dazu). */
   explainPassage(params: ExplainParams): Promise<ExplainResult>;
   /** Kann Claude beim Erklären im Internet suchen? */

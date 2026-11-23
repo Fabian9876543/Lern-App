@@ -3,6 +3,7 @@ import type { PlatformImpl } from "../types";
 import AiSettings from "./AiSettings";
 import {
   aiStatus,
+  analyzeExam,
   analyzeTopics,
   createMaterialNote,
   createStudyNote,
@@ -23,6 +24,7 @@ const impl: PlatformImpl = {
   analyzeTopics,
   createStudyNote,
   createMaterialNote,
+  analyzeExam,
   explainPassage,
   canSearchWeb: false,
   suggestMaterialName,

@@ -1,4 +1,4 @@
-import type { Attempt, Material, NoteMark, StudyNote, StudyPlan, Subject, Test } from "../types";
+import type { Attempt, ExamAnalysis, Material, NoteMark, StudyNote, StudyPlan, Subject, Test } from "../types";
 
 export interface Tables {
   subjects: Subject;
@@ -8,10 +8,11 @@ export interface Tables {
   plans: StudyPlan;
   notes: StudyNote;
   marks: NoteMark;
+  analyses: ExamAnalysis;
 }
 
 export type TableName = keyof Tables;
-export const TABLES: TableName[] = ["subjects", "materials", "tests", "attempts", "plans", "notes", "marks"];
+export const TABLES: TableName[] = ["subjects", "materials", "tests", "attempts", "plans", "notes", "marks", "analyses"];
 
 /**
  * Wo die Daten liegen: "cloud" = Artifact-Speicher in claude.ai (alle Geräte),

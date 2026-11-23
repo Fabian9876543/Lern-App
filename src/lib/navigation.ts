@@ -1,6 +1,6 @@
 import type { StoreState } from "../store/store";
 
-type Data = Pick<StoreState, "subjects" | "tests" | "attempts" | "plans" | "notes">;
+type Data = Pick<StoreState, "subjects" | "tests" | "attempts" | "plans" | "notes" | "analyses">;
 
 function segments(path: string): string[] {
   return path.split("?")[0].split("/").filter(Boolean);
@@ -15,6 +15,10 @@ export function parentPath(path: string, data: Data): string {
     case "note": {
       const note = data.notes.find((n) => n.id === id);
       return note ? `/subject/${note.subjectId}` : "/";
+    }
+    case "analysis": {
+      const analysis = data.analyses.find((a) => a.id === id);
+      return analysis ? `/subject/${analysis.subjectId}` : "/";
     }
     case "plan": {
       if (sub === "note") return `/plan/${id}`;
@@ -51,6 +55,8 @@ export function routeExists(path: string, data: Data): boolean {
       return data.notes.some((n) => n.id === id);
     case "plan":
       return data.plans.some((p) => p.id === id);
+    case "analysis":
+      return data.analyses.some((a) => a.id === id);
     case "test":
       return data.tests.some((t) => t.id === id);
     case "run":

@@ -6,6 +6,7 @@ import { formatFolder } from "../lib/folders";
 import MaterialRow from "../components/MaterialRow";
 import MaterialUpload from "../components/MaterialUpload";
 import { formatDate, summarize } from "../lib/attempts";
+import { scorePercent } from "../lib/examAnalysis";
 import { splitMaterials } from "../lib/materialNames";
 import { daysBetween, formatDay, todayISO } from "../lib/planner";
 import { navigate } from "../router";
@@ -30,7 +31,8 @@ export default function SubjectPage({ subjectId }: { subjectId: string }) {
   const tests = allTests.filter((t) => !t.planId);
   const planTestCount = allTests.length - tests.length;
   const plans = store.plans.filter((p) => p.subjectId === subjectId).sort((a, b) => a.examDate.localeCompare(b.examDate));
-  const { fresh, used } = splitMaterials(materials, tests, plans);
+  const analyses = store.analyses.filter((a) => a.subjectId === subjectId).sort((a, b) => b.createdAt - a.createdAt);
+  const { fresh, used } = splitMaterials(materials, tests, plans, analyses);
   const notes = store.notes.filter((n) => n.subjectId === subjectId).sort((a, b) => b.createdAt - a.createdAt);
   const attempts = store.attempts.filter((a) => a.subjectId === subjectId);
 
@@ -117,11 +119,11 @@ export default function SubjectPage({ subjectId }: { subjectId: string }) {
         )}
         {used.length > 0 && (
           <details className="used-materials">
-            <summary className="small">Material aus früheren Tests und Lernplänen ({used.length})</summary>
+            <summary className="small">Schon verwendetes Material ({used.length})</summary>
             <MaterialList
               materials={used.map((u) => u.material)}
               row={(material) => {
-                const { tests: usedBy, plans: inPlans } = used.find((u) => u.material.id === material.id)!;
+                const { tests: usedBy, plans: inPlans, analyses: inAnalyses } = used.find((u) => u.material.id === material.id)!;
                 return (
                 <MaterialRow
                   key={material.id}
@@ -133,6 +135,7 @@ export default function SubjectPage({ subjectId }: { subjectId: string }) {
                       {[
                         ...usedBy.map((t) => ({ id: t.id, href: `#/test/${t.id}`, title: t.title })),
                         ...inPlans.map((p) => ({ id: p.id, href: `#/plan/${p.id}`, title: `Lernplan „${p.title}“` })),
+                        ...inAnalyses.map((a) => ({ id: a.id, href: `#/analysis/${a.id}`, title: `Klausur-Analyse „${a.title}“` })),
                       ].map((link, i) => (
                         <span key={link.id}>
                           {i > 0 && ", "}
@@ -186,6 +189,46 @@ export default function SubjectPage({ subjectId }: { subjectId: string }) {
             );
           })}
         </div>
+      </section>
+
+      <section className="card stack-sm">
+        <div className="row-between">
+          <h2>Klausuren auswerten</h2>
+          <button className="btn btn-ghost" onClick={() => navigate(`/subject/${subjectId}/new-analysis`)}>
+            + Klausur auswerten
+          </button>
+        </div>
+        {analyses.length === 0 ? (
+          <p className="muted">
+            Lade deine korrigierte Klausur hoch (Fotos oder PDF): Claude zeigt dir, was nicht gut lief, und erstellt dir
+            gezielt Übungsaufgaben zu deinen Schwachstellen.
+          </p>
+        ) : (
+          <div className="stack-sm">
+            {analyses.map((a) => {
+              const percent = scorePercent(a);
+              const high = a.weaknesses.filter((w) => w.priority === "high").length;
+              return (
+                <a key={a.id} className="card card-link card-inner row-between" href={`#/analysis/${a.id}`}>
+                  <div>
+                    <strong>{a.title}</strong>
+                    <div className="muted small">
+                      {a.weaknesses.length === 1 ? "1 Schwachstelle" : `${a.weaknesses.length} Schwachstellen`}
+                      {high > 0 && ` (${high} wichtig)`} · {formatDate(a.createdAt)}
+                    </div>
+                  </div>
+                  {a.grade ? (
+                    <span className="score-pill">Note {a.grade}</span>
+                  ) : percent !== null ? (
+                    <span className="score-pill">{percent}%</span>
+                  ) : (
+                    <span aria-hidden="true">›</span>
+                  )}
+                </a>
+              );
+            })}
+          </div>
+        )}
       </section>
 
       <section className="card stack-sm">
@@ -250,7 +293,7 @@ export default function SubjectPage({ subjectId }: { subjectId: string }) {
                 <div>
                   <strong>{t.title}</strong>
                   <div className="muted small">
-                    {t.mode === "exact" ? "Originalaufgaben" : "Neue Aufgaben"} · {t.questions.length} Fragen ·{" "}
+                    {t.analysisId ? "Übung zur Klausur" : t.mode === "exact" ? "Originalaufgaben" : "Neue Aufgaben"} · {t.questions.length} Fragen ·{" "}
                     {formatDate(t.createdAt)}
                   </div>
                 </div>

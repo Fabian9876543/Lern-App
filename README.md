@@ -6,6 +6,8 @@ Eine persönliche Lern-App: Du lädst deine Lernmaterialien hoch, und die App ma
   (gleiche Zahlen, gleiche Formulierung) samt deiner Lösungen und baut daraus einen Test.
 - **Neue Aufgaben erzeugen** – Lade Material als Referenz hoch (Skript, Folien, Altklausuren). Die KI erstellt neue,
   andere Aufgaben zum gleichen Stoff – in Anzahl, Schwierigkeit und Format nach Wahl.
+- **Klausur auswerten** – Lade deine korrigierte Klausur hoch (Fotos oder PDF). Die KI zeigt, was nicht gut lief, und
+  erstellt gezielt Übungsaufgaben zu deinen Schwachstellen.
 
 Alles folgt einem roten Faden:
 
@@ -115,6 +117,21 @@ Beide Varianten entstehen aus demselben Code (`src/targets/artifact` bzw. `src/t
 - **Lernzettel:** Zu jeder Lern-Aufgabe im Plan schreibt Claude auf Knopfdruck einen Lernzettel – das Wichtigste,
   ein Vorgehen für typische Aufgaben, vorgerechnete Beispiele, typische Fehler und ein kurzer Selbstcheck. Er wird
   gespeichert und ist auch über den Themenstand erreichbar.
+- **Klausur auswerten:** Auf der Fachseite unter „Klausuren auswerten“ die korrigierte Klausur hochladen (Fotos oder
+  Scan aller Seiten mit Korrekturen und Punkten, gern auch Aufgabenblatt und Musterlösung/Erwartungshorizont) und
+  optional dazuschreiben, was man weiß („Note 4, Rechenwege zu knapp“). Claude wertet die Arbeit aus:
+  - Punkte und Note (nur, wenn sie auf der Arbeit stehen), ein kurzer Gesamteindruck und was gut lief,
+  - **Was nicht gut lief:** Schwachstellen nach Themen, sortiert nach Priorität – mit dem, was genau nicht sitzt,
+    einem Tipp zum Üben, den betroffenen Aufgaben und den verlorenen Punkten,
+  - **Wiederkehrende Fehler** (z. B. Flüchtigkeit, Vorgehen, Fachbegriffe, Form & Darstellung),
+  - **Aufgabe für Aufgabe:** Punkte, richtig/teilweise/falsch/nicht bearbeitet, was schiefging und wie es richtig wäre.
+
+  **Gezielt üben:** Ein Knopf erstellt einen Übungstest zu allen Schwachstellen (3 Aufgaben je Schwachstelle, die
+  wichtigsten zuerst), außerdem gibt es bei jeder Schwachstelle „Übungsaufgaben dazu“ (5) und bei jeder fehlerhaften
+  Aufgabe „Ähnliche Aufgaben üben“ (4). Die neuen Aufgaben haben den Stil und das Niveau der Klausur, aber neue Zahlen,
+  und gehen in Erklärung und Tipp auf genau diese Fehler ein. Die Übungen stehen mit ihren Ergebnissen bei der Analyse
+  und im Fach. Auswerten und Erstellen laufen weiter, auch wenn man die Seite verlässt. Korrekturen auf
+  eingescannten Seiten werden beim Abschreiben gekennzeichnet mit übernommen.
 - **Stellen im Lernzettel erklären lassen:** Text markieren (am Handy lange drücken), dann unten „Bin unsicher“ oder
   „Weiß ich nicht mehr“ wählen. Claude erklärt genau diese Stelle – kurz aufgefrischt bzw. von Grund auf mit Beispiel
   und Merkhilfe –, zuerst aus dem Material des Lernzettels (mit Fundstelle), sonst aus seinem Fachwissen; in der
@@ -198,7 +215,8 @@ wählen.
 - Web-Version: Der API-Schlüssel liegt nur im Browser (localStorage) und wird ausschließlich an `api.anthropic.com` gesendet.
   Nutze die App deshalb nur auf deinem eigenen Gerät.
 - Materialien werden nur dann an Claude geschickt, wenn du einen Test, die Themen eines Lernplans oder einen Lernzettel
-  erstellen oder eine markierte Stelle erklären lässt – und beim automatischen Benennen ein Auszug der Datei.
+  erstellen, eine Klausur auswerten oder eine markierte Stelle erklären lässt – und beim automatischen Benennen ein
+  Auszug der Datei.
 - Web-Version: Beim Erklären markierter Stellen kann Claude im Internet suchen (über die Websuche der Claude-API,
   höchstens 3 Suchen pro Erklärung, kostet extra). Ist sie für dein API-Konto nicht freigeschaltet, erklärt Claude ohne
   Suche.
@@ -223,5 +241,5 @@ Aufbau:
 | `src/lib/` | Auswertung, Dateiverarbeitung, PDF, Durchläufe, Backup, Lernplan (`planner.ts`: Kalender ohne KI, `plans.ts`: Aktionen) |
 | `src/lib/pdfExport/` | Lernzettel als PDF: im Browser unsichtbar setzen (`layout.tsx`), Seiten aufteilen (`paginate.ts`), mit pdf-lib zeichnen (`paint.ts`) |
 | `src/assets/pdf-fonts/` | Eingebettete Schriften für den PDF-Export (Inter, DejaVu Sans, JetBrains Mono; erzeugt mit `scripts/make-pdf-fonts.py`, Lizenzen in `LICENSES.md`) |
-| `src/pages/` | Seiten (Übersicht, Fach, Test erstellen, Test, Durchlauf, Ergebnis, Lernplan, Lernzettel, Einstellungen) |
+| `src/pages/` | Seiten (Übersicht, Fach, Test erstellen, Test, Durchlauf, Ergebnis, Lernplan, Lernzettel, Klausur-Analyse, Einstellungen) |
 | `src/components/` | Wiederverwendbare Bausteine (Antwortfelder, Feedback, Markdown/LaTeX, Editor) |

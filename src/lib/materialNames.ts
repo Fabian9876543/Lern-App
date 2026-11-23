@@ -1,4 +1,4 @@
-import type { Material, MaterialKind, StudyPlan, Test } from "../types";
+import type { ExamAnalysis, Material, MaterialKind, StudyPlan, Test } from "../types";
 
 /**
  * Dateinamen-Logik ohne KI: Erkennen nichtssagender Namen (Handyfotos, Scans,
@@ -73,6 +73,15 @@ export interface UsedMaterial {
   material: Material;
   tests: Test[];
   plans: StudyPlan[];
+  analyses: ExamAnalysis[];
+}
+
+/** Kurz: wofür ein Material schon verwendet wurde (z. B. „aus „Test 1““). */
+export function usedLabel(u: UsedMaterial): string {
+  if (u.tests[0]) return `aus „${u.tests[0].title}“`;
+  if (u.plans[0]) return `aus „${u.plans[0].title}“`;
+  if (u.analyses[0]) return `ausgewertet in „${u.analyses[0].title}“`;
+  return "";
 }
 
 /**
@@ -83,13 +92,15 @@ export function splitMaterials(
   materials: Material[],
   tests: Test[],
   plans: StudyPlan[] = [],
+  analyses: ExamAnalysis[] = [],
 ): { fresh: Material[]; used: UsedMaterial[] } {
   const fresh: Material[] = [];
   const used: UsedMaterial[] = [];
   for (const m of materials) {
     const usedBy = testsUsingMaterial(m.id, tests);
     const inPlans = plans.filter((p) => p.materialIds.includes(m.id));
-    if (usedBy.length || inPlans.length) used.push({ material: m, tests: usedBy, plans: inPlans });
+    const inAnalyses = analyses.filter((a) => a.materialIds.includes(m.id));
+    if (usedBy.length || inPlans.length || inAnalyses.length) used.push({ material: m, tests: usedBy, plans: inPlans, analyses: inAnalyses });
     else fresh.push(m);
   }
   used.sort((a, b) => b.material.createdAt - a.material.createdAt);

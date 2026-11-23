@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from "react";
-import { coerceGrading, coerceMaterialName, coerceTopicAnalysis } from "../../ai/coerce";
+import { coerceExamAnalysis, coerceGrading, coerceMaterialName, coerceTopicAnalysis } from "../../ai/coerce";
 import { countJsonKey, countQuestions, describeCorrectAnswer, normalizeQuestions, orderQuestions } from "../../ai/normalize";
 import { CONTINUATION_RESERVE, generateInParts, partsNote } from "../../ai/rounds";
 import {
@@ -19,6 +19,9 @@ import {
   buildTaskInstruction,
   buildTopicInstruction,
   buildExplainTask,
+  buildExamAnalysisInstruction,
+  EXAM_ANALYSIS_JSON_FORMAT,
+  EXAM_ANALYSIS_SYSTEM_PROMPT,
   cleanStudyNote,
   explainHistoryText,
   explainSystemPrompt,
@@ -27,7 +30,7 @@ import {
   splitTranscript,
   transcribePrompt,
 } from "../../ai/prompts";
-import type { TopicAnalysis } from "../../ai/schemas";
+import type { GeneratedExamAnalysis, TopicAnalysis } from "../../ai/schemas";
 import { ROLE_LABELS } from "../../lib/files";
 import { verdictFromScore } from "../../lib/grading";
 import { newId } from "../../lib/ids";
@@ -42,6 +45,7 @@ import type { MaterialRole } from "../../types";
 import type {
   AiGrade,
   AiStatus,
+  ExamAnalysisParams,
   ExplainParams,
   ExplainResult,
   GenerateParams,
@@ -471,6 +475,38 @@ export async function createMaterialNote(
   if (!cleaned) throw new AiResponseError("Claude hat keinen Lernzettel geliefert. Bitte erneut versuchen.");
   const content = note ? `${cleaned}\n\n---\n\n*Hinweis der App: ${note}*` : cleaned;
   return { title, content, model: `claude.ai – ${TIERS.find((t) => t.id === tier)?.label ?? tier}` };
+}
+
+// ---------- Klausur-Analyse ----------
+
+export async function analyzeExam(params: ExamAnalysisParams): Promise<{ analysis: GeneratedExamAnalysis; model: string }> {
+  const { materials, signal, onProgress } = params;
+  if (materials.length === 0) throw new AiResponseError("Bitte deine korrigierte Klausur auswählen.");
+  const sample = await requireSample();
+  const tier = getSettings().generationTier;
+  onProgress?.({ phase: "preparing", questionsSoFar: 0 });
+  const prepared = await prepareMaterials(sample, materials, { signal, onProgress });
+  const { prompt, note } = await promptWithMaterials(
+    sample,
+    prepared,
+    (section) => `${EXAM_ANALYSIS_SYSTEM_PROMPT}\n\n${EXAM_ANALYSIS_JSON_FORMAT}\n\n${section}${buildExamAnalysisInstruction(params)}`,
+    { kind: "prefix" },
+  );
+  await checkLimits(sample, prompt, prepared.images.length);
+  onProgress?.({ phase: "analyzing", questionsSoFar: 0 });
+  const raw = await sample.json(prompt, {
+    modelTier: tier,
+    images: prepared.images.length ? prepared.images : undefined,
+    cache: false,
+    signal,
+    onText: ({ text }) => onProgress?.({ phase: "writing", questionsSoFar: countJsonKey(text, "label") }),
+  });
+  const analysis = coerceExamAnalysis(raw);
+  if (analysis.tasks.length === 0 && analysis.weaknesses.length === 0) {
+    throw new AiResponseError("Claude hat in der Auswahl keine bearbeitete Klausur erkannt. Sind die richtigen Dateien ausgewählt?");
+  }
+  if (note) analysis.notes = [`Hinweis der App: ${note}`, analysis.notes].filter(Boolean).join("\n\n");
+  return { analysis, model: `claude.ai – ${TIERS.find((t) => t.id === tier)?.label ?? tier}` };
 }
 
 // ---------- Markierte Stelle erklären ----------

@@ -7,7 +7,7 @@ import MaterialRow from "../components/MaterialRow";
 import MaterialUpload from "../components/MaterialUpload";
 import { formatBytes } from "../lib/files";
 import { newId } from "../lib/ids";
-import { splitMaterials } from "../lib/materialNames";
+import { splitMaterials, usedLabel } from "../lib/materialNames";
 import { splitTest } from "../lib/testParts";
 import { IS_ARTIFACT } from "../platform";
 import { navigate, routeQuery } from "../router";
@@ -48,6 +48,7 @@ export default function NewTestPage({ subjectId }: { subjectId: string }) {
     materials,
     store.tests.filter((t) => t.subjectId === subjectId),
     store.plans.filter((p) => p.subjectId === subjectId),
+    store.analyses.filter((a) => a.subjectId === subjectId),
   );
   const [preview, setPreview] = useState<Material | null>(null);
   const [settings, setSettings] = useState<GenerationSettings>(() => {
@@ -246,7 +247,7 @@ export default function NewTestPage({ subjectId }: { subjectId: string }) {
         )}
         {used.length > 0 && (
           <details className="used-materials" open={used.some((u) => selected.has(u.material.id))}>
-            <summary className="small">Material aus früheren Tests und Lernplänen wiederverwenden ({used.length})</summary>
+            <summary className="small">Schon verwendetes Material wiederverwenden ({used.length})</summary>
             <MaterialList
               materials={used.map((u) => u.material)}
               selection={materialSelection}
@@ -258,7 +259,7 @@ export default function NewTestPage({ subjectId }: { subjectId: string }) {
                     material={material}
                     onPreview={setPreview}
                     actions={false}
-                    extra={<> · aus „{u.tests[0]?.title ?? u.plans[0].title}“</>}
+                    extra={<> · {usedLabel(u)}</>}
                     selectable={{ checked: selected.has(material.id), onToggle: () => toggleMaterial(material.id) }}
                   />
                 );

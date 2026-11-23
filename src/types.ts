@@ -103,6 +103,8 @@ export interface Test {
   model: string;
   /** Gehört zu diesem Lernplan (Übung, Wiederholung, Probeklausur, Einstufung). */
   planId?: string;
+  /** Übung zu den Schwachstellen einer Klausur-Analyse. */
+  analysisId?: string;
 }
 
 export type Verdict = "correct" | "partial" | "wrong";
@@ -265,5 +267,74 @@ export interface NoteMark {
   level: MarkLevel;
   /** Gespräch zur Stelle: Erklärung, Nachfragen, weitere Antworten. */
   messages: MarkMessage[];
+  createdAt: number;
+}
+
+// ---------- Klausur-Analyse ----------
+
+/** Art eines Fehlers in einer Klausur. */
+export type ErrorKind =
+  | "understanding"
+  | "method"
+  | "calculation"
+  | "careless"
+  | "incomplete"
+  | "terminology"
+  | "form"
+  | "other";
+
+export type ExamTaskStatus = "correct" | "partial" | "wrong" | "missing" | "unknown";
+
+/** Eine Aufgabe der Klausur: wie es lief und was falsch war. */
+export interface ExamTaskResult {
+  /** z. B. „Aufgabe 3b“ */
+  label: string;
+  topic: string;
+  pointsAchieved: number | null;
+  pointsMax: number | null;
+  status: ExamTaskStatus;
+  /** Was konkret schiefging (leer, wenn alles stimmt). */
+  mistake: string;
+  /** So wäre es richtig – kurz, Markdown. */
+  correction: string;
+  errorKinds: ErrorKind[];
+}
+
+/** Schwachstelle: ein Thema, das (noch) nicht sitzt. */
+export interface ExamWeakness {
+  topic: string;
+  priority: Importance;
+  /** Was genau nicht sitzt. */
+  problem: string;
+  /** Worauf achten / wie üben. */
+  advice: string;
+  /** Betroffene Aufgaben, z. B. „Aufgabe 2“. */
+  tasks: string[];
+  pointsLost: number | null;
+}
+
+/** Auswertung einer korrigierten Klausur (bzw. Klassenarbeit, Test). */
+export interface ExamAnalysis {
+  id: string;
+  subjectId: string;
+  title: string;
+  /** Hochgeladene Klausur (und ggf. Aufgabenblatt, Lösung, Erwartungshorizont). */
+  materialIds: string[];
+  /** Was die lernende Person dazu angegeben hat. */
+  remarks: string;
+  pointsAchieved: number | null;
+  pointsMax: number | null;
+  /** Note, wie sie auf der Klausur steht. */
+  grade: string | null;
+  /** Gesamteindruck in wenigen Sätzen. */
+  summary: string;
+  strengths: string[];
+  /** Nach Priorität sortiert. */
+  weaknesses: ExamWeakness[];
+  errorPatterns: { kind: ErrorKind; description: string }[];
+  tasks: ExamTaskResult[];
+  /** Hinweise, z. B. unleserliche Seiten. */
+  notes: string;
+  model: string;
   createdAt: number;
 }

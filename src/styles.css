@@ -2305,3 +2305,139 @@ body:has(.mark-bar) .container {
 .note-sources-body {
   margin-top: 0.75rem;
 }
+
+/* ---------- Klausur-Analyse ---------- */
+
+.analysis-tips {
+  margin: 0;
+  padding-left: 1.2rem;
+}
+.analysis-score {
+  gap: 0.5rem;
+  margin-top: 0.35rem;
+}
+.analysis-score .score-pill {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.25rem 0.75rem;
+}
+.analysis-strengths {
+  margin: 0;
+  padding-left: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.analysis-strengths li::before {
+  content: "✓ ";
+  color: var(--correct-text);
+  font-weight: 700;
+}
+.practice-card {
+  border: 1px solid color-mix(in srgb, var(--primary) 35%, var(--border));
+}
+.practice-progress {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+.weakness {
+  border-left: 4px solid var(--border);
+}
+.weakness-high {
+  border-left-color: var(--wrong);
+}
+.weakness-medium {
+  border-left-color: var(--partial);
+}
+.weakness-head {
+  align-items: flex-start;
+}
+.weakness-head h3 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+.weakness .markdown > :first-child,
+.task-result-body .markdown > :first-child {
+  margin-top: 0;
+}
+.weakness .markdown > :last-child,
+.task-result-body .markdown > :last-child {
+  margin-bottom: 0;
+}
+.weakness-advice {
+  background: var(--surface-2);
+  border-radius: var(--radius-sm);
+  padding: 0.5rem 0.75rem;
+}
+.weakness-advice .markdown {
+  display: inline;
+}
+.weakness-advice .markdown p {
+  display: inline;
+}
+.error-patterns {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.error-patterns li {
+  display: flex;
+  gap: 0.6rem;
+  align-items: baseline;
+}
+.error-patterns .chip {
+  flex: none;
+}
+.task-results {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.task-result {
+  border: 1px solid var(--border);
+  border-left-width: 4px;
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+.task-correct {
+  border-left-color: var(--correct);
+}
+.task-partial {
+  border-left-color: var(--partial);
+}
+.task-wrong,
+.task-missing {
+  border-left-color: var(--wrong);
+}
+.task-result > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  padding: 0.6rem 0.8rem;
+  cursor: pointer;
+  list-style: none;
+}
+.task-result > summary::-webkit-details-marker {
+  display: none;
+}
+.task-result-label {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.task-result-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: none;
+}
+.task-result-body {
+  padding: 0 0.8rem 0.8rem;
+}

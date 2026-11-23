@@ -1,4 +1,4 @@
-import type { Difficulty, GenerationSettings, MarkLevel, NoteLength, Question, QuestionType } from "../types";
+import type { Difficulty, ErrorKind, GenerationSettings, MarkLevel, NoteLength, Question, QuestionType } from "../types";
 
 export const TYPE_LABELS: Record<QuestionType, string> = {
   single_choice: "Single Choice",
@@ -367,6 +367,7 @@ Material: „${materialName}“. Beigefügt ${pages.length === 1 ? "ist 1 Bild" 
 Schreibe den Inhalt jedes Bildes vollständig und genau ab:
 - Beginne jedes Bild mit einer eigenen Zeile „=== Bild k ===“ (k = 1 bis ${pages.length}, in der Reihenfolge der Bilder).
 - Übernimm den Text wörtlich – mit Aufgabennummern, Punkten, Randnotizen und Handschrift. Unleserliches markierst du als [unleserlich].
+- Ist es eine korrigierte Arbeit, gib die Korrektur gekennzeichnet an der passenden Stelle wieder: [Korrektur: …] für Häkchen, Striche, Anmerkungen und verbesserte Stellen der korrigierenden Person, [Punkte: 3/5] für vergebene Punkte, Note und Gesamtpunktzahl wörtlich.
 - Formeln in LaTeX mit $...$ bzw. $$...$$, Tabellen und T-Konten als Markdown-Tabellen.
 - Abbildungen, Diagramme und Skizzen beschreibst du kurz in eckigen Klammern, mit allen Zahlen und Beschriftungen, z. B. [Abbildung: Angebots- und Nachfragekurve, Schnittpunkt bei p = 4, x = 120].
 - Ist ein Bild leer, schreibe [leere Seite].
@@ -522,4 +523,79 @@ export function explainHistoryText(history: { role: "user" | "assistant"; conten
     m.role === "assistant" ? `<deine_antwort>\n${m.content.trim()}\n</deine_antwort>` : buildExplainFollowUp(m.content),
   );
   return `Bisheriges Gespräch zu dieser Stelle:\n\n${turns.join("\n\n")}`;
+}
+
+// ---------- Klausur-Analyse ----------
+
+export const ERROR_KIND_LABELS: Record<ErrorKind, string> = {
+  understanding: "Verständnis",
+  method: "Vorgehen",
+  calculation: "Rechenfehler",
+  careless: "Flüchtigkeit",
+  incomplete: "Unvollständig",
+  terminology: "Fachbegriffe",
+  form: "Form & Darstellung",
+  other: "Sonstiges",
+};
+
+export const EXAM_ANALYSIS_SYSTEM_PROMPT = `Du bist ein erfahrener Tutor und wertest eine korrigierte Klausur (bzw. Klassenarbeit, Test oder Übungsblatt) eines Lernenden aus. Ziel: Der Lernende sieht genau, was nicht gut lief, und kann es gezielt üben.
+
+Das Material enthält die bearbeitete und korrigierte Arbeit – meist Fotos oder Scans mit Korrekturzeichen, Randbemerkungen und Punkten der korrigierenden Lehrkraft – und eventuell Aufgabenblatt, Musterlösung oder Erwartungshorizont. In abgeschriebenen Seiten steht die Korrektur als [Korrektur: …] und [Punkte: …].
+
+Vorgehen:
+- Geh die Arbeit Aufgabe für Aufgabe durch (Teilaufgaben einzeln, wenn sie einzeln bewertet sind). Die Korrektur ist die wichtigste Quelle dafür, was falsch war. Prüf zusätzlich selbst und benenne den eigentlichen Fehler – z. B. falscher Ansatz, falsch angewandte Regel, fehlender Begründungsschritt, Rechenfehler –, nicht nur das Symptom.
+- Ist keine Korrektur erkennbar, vergleich mit der Musterlösung oder löse die Aufgaben selbst – und sag das in "notes".
+- Punkte und Note nur angeben, wenn sie auf der Arbeit stehen; erfinde keine Zahlen.
+- Fasse die Fehler zu Schwachstellen nach Themen zusammen und sortiere sie nach Priorität: viele verlorene Punkte, prüfungsrelevant oder Grundlage für anderes = "high". Benenne konkret, was nicht sitzt („Vorzeichen beim Umstellen von Ungleichungen“ statt „Algebra“). Themen, die gut liefen, sind keine Schwachstellen.
+- Erkenne wiederkehrende Fehlerarten (z. B. oft Flüchtigkeitsfehler, Einheiten vergessen, Aufgaben nicht zu Ende bearbeitet, Fachbegriffe ungenau).
+- "correction": so wäre es richtig – kurz, mit dem entscheidenden Schritt bzw. der richtigen Lösung.
+- Sei ehrlich, konkret und ermutigend; nenn auch, was gut lief.
+- Sprache: die Sprache der Arbeit. Sprich den Lernenden mit „du“ an. Formeln in LaTeX mit $...$.
+
+Fehlerarten ("kind" bzw. "error_kinds"): understanding (Stoff nicht verstanden), method (falsches oder unvollständiges Vorgehen), calculation (Rechenfehler), careless (Flüchtigkeitsfehler, z. B. abgeschrieben, Vorzeichen), incomplete (nicht oder nicht zu Ende bearbeitet), terminology (Fachbegriffe, Definitionen), form (Darstellung, Einheiten, Antwortsatz, Begründung fehlt), other.
+
+${ACCOUNTING_RULES}`;
+
+export const EXAM_ANALYSIS_JSON_FORMAT = `Antworte ausschließlich mit einem JSON-Objekt in genau dieser Form (keine weiteren Texte):
+{
+  "title": "Kurzer Titel, z. B. „Klausur Analysis – November“",
+  "points_achieved": 38 oder null,
+  "points_max": 60 oder null,
+  "grade": "Note wie auf der Arbeit, z. B. „3+“" oder null,
+  "summary": "Gesamteindruck in 2–4 Sätzen",
+  "strengths": ["Was gut lief"],
+  "weaknesses": [
+    {
+      "topic": "Thema, 2–6 Wörter",
+      "priority": "high" | "medium" | "low",
+      "problem": "Was genau nicht sitzt",
+      "advice": "Worauf achten und wie üben, 1–2 Sätze",
+      "tasks": ["Aufgabe 2b"],
+      "points_lost": 4 oder null
+    }
+  ],
+  "error_patterns": [{ "kind": "careless", "description": "Wie sich das zeigt" }],
+  "tasks": [
+    {
+      "label": "Aufgabe 1a",
+      "topic": "Thema",
+      "points_achieved": 3 oder null,
+      "points_max": 5 oder null,
+      "status": "correct" | "partial" | "wrong" | "missing" | "unknown",
+      "mistake": "Was schiefging, leer wenn alles stimmt",
+      "correction": "So wäre es richtig",
+      "error_kinds": ["method"]
+    }
+  ],
+  "notes": "Hinweise oder leerer String"
+}`;
+
+export function buildExamAnalysisInstruction(params: { subjectName: string; remarks: string }): string {
+  return [
+    params.subjectName ? `Fach: „${params.subjectName}“` : "",
+    params.remarks.trim() ? `Hinweise des Lernenden zur Arbeit: ${params.remarks.trim()}` : "",
+    "Werte die korrigierte Arbeit oben aus: alle Aufgaben in ihrer Reihenfolge, dann die Schwachstellen nach Priorität und die wiederkehrenden Fehlerarten.",
+  ]
+    .filter(Boolean)
+    .join("\n\n");
 }

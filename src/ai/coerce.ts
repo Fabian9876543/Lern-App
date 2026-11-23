@@ -1,5 +1,6 @@
-import type { MaterialRole } from "../types";
-import type { GeneratedQuestion, GeneratedTest, GeneratedTopic, GradingResult, TopicAnalysis } from "./schemas";
+import type { ErrorKind, MaterialRole } from "../types";
+import { ERROR_KINDS, EXAM_TASK_STATUSES } from "./schemas";
+import type { GeneratedExamAnalysis, GeneratedQuestion, GeneratedTest, GeneratedTopic, GradingResult, TopicAnalysis } from "./schemas";
 
 /**
  * Liest KI-Antworten tolerant ein, wenn kein JSON-Schema erzwungen werden kann
@@ -132,4 +133,53 @@ export function coerceMaterialName(raw: unknown): { name: string; role: Material
   const name = str(r.name).trim();
   if (!name) return null;
   return { name, role: (ROLES as readonly string[]).includes(r.role as string) ? (r.role as MaterialRole) : null };
+}
+
+// ---------- Klausur-Analyse ----------
+
+const IMPORTANCE = ["high", "medium", "low"] as const;
+
+/** Liest eine Klausur-Analyse tolerant ein. */
+export function coerceExamAnalysis(raw: unknown): GeneratedExamAnalysis {
+  const obj = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+  const list = (v: unknown) => (Array.isArray(v) ? v.filter((x): x is Record<string, unknown> => !!x && typeof x === "object") : []);
+  const kinds = (v: unknown) => [...new Set(strList(v).filter((k): k is ErrorKind => (ERROR_KINDS as readonly string[]).includes(k)))];
+  const rank = { high: 0, medium: 1, low: 2 };
+  return {
+    title: str(obj.title).trim(),
+    points_achieved: num(obj.points_achieved),
+    points_max: num(obj.points_max),
+    grade: strOrNull(obj.grade),
+    summary: str(obj.summary).trim(),
+    strengths: strList(obj.strengths).map((s) => s.trim()),
+    weaknesses: list(obj.weaknesses)
+      .map((w) => ({
+        topic: str(w.topic ?? w.name).trim(),
+        priority: oneOf(w.priority, IMPORTANCE, "medium"),
+        problem: str(w.problem ?? w.description).trim(),
+        advice: str(w.advice ?? w.tip).trim(),
+        tasks: strList(w.tasks).map((t) => t.trim()),
+        points_lost: num(w.points_lost),
+      }))
+      .filter((w) => w.topic)
+      .map((w, i) => ({ w, i }))
+      .sort((a, b) => rank[a.w.priority] - rank[b.w.priority] || a.i - b.i)
+      .map((x) => x.w),
+    error_patterns: list(obj.error_patterns)
+      .map((e) => ({ kind: oneOf(e.kind, ERROR_KINDS, "other"), description: str(e.description).trim() }))
+      .filter((e) => e.description),
+    tasks: list(obj.tasks)
+      .map((t) => ({
+        label: str(t.label ?? t.task).trim(),
+        topic: str(t.topic).trim(),
+        points_achieved: num(t.points_achieved),
+        points_max: num(t.points_max),
+        status: oneOf(t.status, EXAM_TASK_STATUSES, "unknown"),
+        mistake: str(t.mistake).trim(),
+        correction: str(t.correction).trim(),
+        error_kinds: kinds(t.error_kinds),
+      }))
+      .filter((t) => t.label),
+    notes: str(obj.notes).trim(),
+  };
 }

@@ -1,5 +1,5 @@
 import { getState, repo } from "../store/store";
-import type { Attempt, Material, NoteMark, StudyNote, StudyPlan, Subject, Test } from "../types";
+import type { Attempt, ExamAnalysis, Material, NoteMark, StudyNote, StudyPlan, Subject, Test } from "../types";
 import { blobToDataUrl } from "./files";
 
 /** Backup aller Daten als JSON – auch zum Umziehen zwischen Web- und claude.ai-Version. */
@@ -19,10 +19,11 @@ interface Backup {
   plans?: StudyPlan[];
   notes?: StudyNote[];
   marks?: NoteMark[];
+  analyses?: ExamAnalysis[];
 }
 
 export async function exportBackup(): Promise<Blob> {
-  const { subjects, materials, tests, attempts, plans, notes, marks } = getState();
+  const { subjects, materials, tests, attempts, plans, notes, marks, analyses } = getState();
   const backupMaterials: BackupMaterial[] = [];
   for (const material of materials) {
     // Abgeschriebenen Text einbetten, damit das Backup ohne Artifact-Dateien auskommt
@@ -62,6 +63,7 @@ export async function exportBackup(): Promise<Blob> {
     plans,
     notes,
     marks,
+    analyses,
   };
   return new Blob([JSON.stringify(backup)], { type: "application/json" });
 }
@@ -98,5 +100,6 @@ export async function importBackup(file: File): Promise<{ subjects: number; test
   (data.plans ?? []).forEach((p) => repo.addPlan(p));
   (data.notes ?? []).forEach((n) => repo.saveNote(n));
   (data.marks ?? []).forEach((m) => repo.saveMark(m));
+  (data.analyses ?? []).forEach((a) => repo.saveAnalysis(a));
   return { subjects: data.subjects.length, tests: data.tests?.length ?? 0 };
 }

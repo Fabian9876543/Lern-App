@@ -1,6 +1,6 @@
 import Dexie, { type EntityTable } from "dexie";
 import { blobToDataUrl } from "../lib/files";
-import type { Attempt, Material, NoteMark, StudyNote, StudyPlan, Subject, Test } from "../types";
+import type { Attempt, ExamAnalysis, Material, NoteMark, StudyNote, StudyPlan, Subject, Test } from "../types";
 import { TABLES, type Backend } from "./types";
 
 /** Speicherung im Browser (IndexedDB) – für die eigenständige Web-Version. */
@@ -13,6 +13,7 @@ const db = new Dexie("lern-app") as Dexie & {
   plans: EntityTable<StudyPlan, "id">;
   notes: EntityTable<StudyNote, "id">;
   marks: EntityTable<NoteMark, "id">;
+  analyses: EntityTable<ExamAnalysis, "id">;
 };
 
 db.version(1).stores({
@@ -32,6 +33,10 @@ db.version(3).stores({
 
 db.version(4).stores({
   marks: "id, noteId, subjectId, createdAt",
+});
+
+db.version(5).stores({
+  analyses: "id, subjectId, createdAt",
 });
 
 export const dexieBackend: Backend = {

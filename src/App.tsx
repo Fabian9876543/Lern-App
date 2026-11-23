@@ -13,6 +13,8 @@ import PlanPage from "./pages/PlanPage";
 import NotePage from "./pages/NotePage";
 import NewNotePage from "./pages/NewNotePage";
 import NoteViewPage from "./pages/NoteViewPage";
+import NewAnalysisPage from "./pages/NewAnalysisPage";
+import AnalysisPage from "./pages/AnalysisPage";
 import TestPage from "./pages/TestPage";
 import RunPage from "./pages/RunPage";
 import ResultPage from "./pages/ResultPage";
@@ -28,7 +30,9 @@ export default function App() {
   if (section === "subject" && id && sub === "new-test") page = <NewTestPage subjectId={id} />;
   else if (section === "subject" && id && sub === "new-plan") page = <NewPlanPage subjectId={id} />;
   else if (section === "subject" && id && sub === "new-note") page = <NewNotePage subjectId={id} />;
+  else if (section === "subject" && id && sub === "new-analysis") page = <NewAnalysisPage subjectId={id} />;
   else if (section === "note" && id) page = <NoteViewPage noteId={id} />;
+  else if (section === "analysis" && id) page = <AnalysisPage analysisId={id} />;
   else if (section === "plan" && id && sub === "note" && subId) page = <NotePage planId={id} topicId={subId} />;
   else if (section === "plan" && id) page = <PlanPage planId={id} />;
   else if (section === "subject" && id) page = <SubjectPage subjectId={id} />;
