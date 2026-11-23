@@ -286,10 +286,10 @@ export default function TestPage({ testId }: { testId: string }) {
       </section>
 
       {/* Hinweise und Quellen stehen am Ende, damit oben gleich „Test starten“ kommt. */}
-      {test.notes && <NotesCallout notes={test.notes} />}
+      {test.notes && <NotesCallout notes={test.notes} collapsed />}
 
       {test.materialIds.length > 0 && (
-        <details className="card note-sources">
+        <details className="card note-sources sources-details">
           <summary>
             <strong>Quellen</strong>
             <span className="muted small">

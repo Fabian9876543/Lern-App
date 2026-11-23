@@ -163,8 +163,8 @@ Beide Varianten entstehen aus demselben Code (`src/targets/artifact` bzw. `src/t
   Probeklausur und Lernzettel aus seinem Fachwissen. Die App weist darauf hin, dass das vom Stoff der eigenen
   Veranstaltung abweichen kann.
 - **Testseite aufgeräumt:** Oben stehen nur Art, Anzahl der Fragen, Punkte und Datum, darunter gleich „Test starten“.
-  Hinweise von Claude (z. B. zu fehlenden Lösungen) und die Quellen – zugeklappt, nach Ordnern, zum Ansehen antippen –
-  stehen ganz unten.
+  Ganz unten stehen zugeklappt die „Hinweise von Claude“ (z. B. zu fehlenden Lösungen; nummerierte Hinweise als Liste)
+  und die „Quellen“ (nach Ordnern, zum Ansehen antippen) – bei Bedarf aufklappen.
 - Backup als JSON-Datei exportieren/importieren
 - **„Zurück“-Knopf** oben in der Kopfleiste (bleibt beim Scrollen sichtbar): führt zur vorherigen Seite – auch in
   claude.ai, wo es keinen Browser-Verlauf für die App gibt – und stellt dort die Scroll-Position wieder her. Gelöschte
