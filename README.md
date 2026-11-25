@@ -171,6 +171,10 @@ Beide Varianten entstehen aus demselben Code (`src/targets/artifact` bzw. `src/t
   Moment auch am MacBook („↻ Vom anderen Gerät übernommen“) und kann dort geprüft werden. Text, Bewertung, die aktuelle
   Frage und das Beenden des Tests werden ebenso abgeglichen; was man auf einem Gerät gerade tippt, wird dabei nicht
   überschrieben. In der Web-Version liegen die Daten nur im jeweiligen Browser – dort gibt es keinen Abgleich.
+- **Robust bei wackliger Verbindung:** Der PDF-Leser wird kurz nach dem Start im Hintergrund geladen und bleibt bereit –
+  PDFs klappen so auch, wenn die Verbindung später kurz weg ist oder die App tagelang offen bleibt. Programmteile, die
+  erst bei Bedarf geladen werden (PDF-Leser, PDF-Export, Word/Excel), werden bei einem Verbindungsfehler automatisch
+  erneut geholt; klappt es gar nicht, erscheint ein verständlicher Hinweis statt einer technischen Fehlermeldung.
 - Backup als JSON-Datei exportieren/importieren
 - **„Zurück“-Knopf** oben in der Kopfleiste (bleibt beim Scrollen sichtbar): führt zur vorherigen Seite – auch in
   claude.ai, wo es keinen Browser-Verlauf für die App gibt – und stellt dort die Scroll-Position wieder her. Gelöschte

@@ -1,23 +1,72 @@
-import type { PDFDocumentProxy } from "pdfjs-dist";
+import type { PDFDocumentProxy, PDFWorker } from "pdfjs-dist";
+import { ModuleLoadError, loadModule } from "./lazyImport";
 
-/** PDF-Verarbeitung im Browser (pdf.js), wird erst bei Bedarf geladen. */
+/**
+ * PDF-Verarbeitung im Browser (pdf.js). Wird kurz nach dem Start im Hintergrund
+ * vorgeladen (siehe `preloadPdf`), damit PDFs auch dann noch gelesen werden
+ * können, wenn die Verbindung später wackelt oder die App tagelang offen ist.
+ */
 
-let libPromise: Promise<typeof import("pdfjs-dist")> | null = null;
+type PdfLib = typeof import("pdfjs-dist");
 
-function loadLib() {
-  libPromise ??= Promise.all([import("pdfjs-dist"), import("pdfjs-dist/build/pdf.worker.min.mjs?url")]).then(
+const WHAT = "Der PDF-Leser";
+
+let libPromise: Promise<PdfLib> | null = null;
+let workerPromise: Promise<PDFWorker> | null = null;
+
+function loadLib(): Promise<PdfLib> {
+  libPromise ??= Promise.all([
+    loadModule(() => import("pdfjs-dist"), WHAT),
+    loadModule(() => import("pdfjs-dist/build/pdf.worker.min.mjs?url"), WHAT),
+  ]).then(
     ([lib, worker]) => {
       lib.GlobalWorkerOptions.workerSrc = worker.default;
       return lib;
+    },
+    (e) => {
+      // Beim nächsten Mal neu versuchen statt den Fehler zu behalten
+      libPromise = null;
+      throw e;
     },
   );
   return libPromise;
 }
 
+/** Ein gemeinsamer Hintergrund-Prozess für alle PDFs – einmal geladen, bleibt er bereit. */
+async function sharedWorker(lib: PdfLib): Promise<PDFWorker> {
+  if (!workerPromise) {
+    const worker = new lib.PDFWorker();
+    workerPromise = worker.promise.then(
+      () => worker,
+      (e) => {
+        workerPromise = null;
+        worker.destroy();
+        throw new ModuleLoadError(WHAT, e);
+      },
+    );
+  }
+  const pending = workerPromise;
+  const worker = await pending;
+  if (!worker.destroyed) return worker;
+  if (workerPromise === pending) workerPromise = null;
+  return sharedWorker(lib);
+}
+
+/** Lädt den PDF-Leser im Hintergrund vor (Fehler werden erst bei echter Nutzung gemeldet). */
+export function preloadPdf(): Promise<void> {
+  return loadLib()
+    .then(sharedWorker)
+    .then(
+      () => undefined,
+      () => undefined,
+    );
+}
+
 export async function openPdf(blob: Blob): Promise<PDFDocumentProxy> {
   const lib = await loadLib();
+  const worker = await sharedWorker(lib);
   const data = new Uint8Array(await blob.arrayBuffer());
-  return lib.getDocument({ data }).promise;
+  return lib.getDocument({ data, worker }).promise;
 }
 
 /** Gibt den Speicher eines geöffneten Dokuments frei. */

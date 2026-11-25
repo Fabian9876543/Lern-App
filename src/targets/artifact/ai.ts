@@ -37,6 +37,7 @@ import type { GeneratedExamAnalysis, TopicAnalysis } from "../../ai/schemas";
 import { ROLE_LABELS } from "../../lib/files";
 import { verdictFromScore } from "../../lib/grading";
 import { newId } from "../../lib/ids";
+import { ModuleLoadError } from "../../lib/lazyImport";
 import { closePdf, openPdf, pageText, renderPage } from "../../lib/pdf";
 import { assembleTranscript, chooseForTranscription, inBatches, type Segment } from "../../lib/transcribe";
 import { byteLength, makeExcerpt, wrapMaterial, type ExcerptStrategy, type SourceMaterial } from "../../lib/excerpt";
@@ -146,7 +147,8 @@ async function segmentsOf(m: Material): Promise<Segment[]> {
   let doc;
   try {
     doc = await openPdf(blob);
-  } catch {
+  } catch (e) {
+    if (e instanceof ModuleLoadError) throw new AiResponseError(e.message);
     throw new AiResponseError(`Die PDF „${m.name}“ konnte nicht gelesen werden.`);
   }
   const segments: Segment[] = [];

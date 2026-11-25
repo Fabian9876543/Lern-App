@@ -1,4 +1,5 @@
 import type { MaterialKind, MaterialRole } from "../types";
+import { ModuleLoadError, loadModule } from "./lazyImport";
 
 export const ROLE_LABELS: Record<MaterialRole, string> = {
   tasks: "Aufgaben",
@@ -144,28 +145,28 @@ async function prepareOfficeFile(file: File): Promise<PreparedFile> {
   try {
     if (word) {
       if (zip) {
-        const { docxToMarkdown } = await import("./docx");
+        const { docxToMarkdown } = await loadModule(() => import("./docx"), "Der Word-Leser");
         const text = docxToMarkdown(bytes, file.name);
         return { name: file.name, kind: "text", mimeType: MARKDOWN_MIME, text, size: text.length };
       }
       if (new TextDecoder().decode(bytes.subarray(0, 5)) === "{\\rtf") {
         throw new UnsupportedFileError(`„${file.name}“ ist ein RTF-Dokument – bitte in Word als PDF speichern.`);
       }
-      const { docToText } = await import("./doc");
+      const { docToText } = await loadModule(() => import("./doc"), "Der Word-Leser");
       const text = docToText(bytes, file.name);
       return { name: file.name, kind: "text", mimeType: "text/plain", text, size: text.length };
     }
     if (zip) {
-      const { xlsxToMarkdown } = await import("./xlsx");
+      const { xlsxToMarkdown } = await loadModule(() => import("./xlsx"), "Der Excel-Leser");
       const text = xlsxToMarkdown(bytes, file.name);
       return { name: file.name, kind: "text", mimeType: MARKDOWN_MIME, text, size: text.length };
     }
-    const { xlsToMarkdown } = await import("./xls");
+    const { xlsToMarkdown } = await loadModule(() => import("./xls"), "Der Excel-Leser");
     const text = xlsToMarkdown(bytes, file.name);
     return { name: file.name, kind: "text", mimeType: MARKDOWN_MIME, text, size: text.length };
   } catch (e) {
     // Lesefehler der Office-Leser (beschädigt, Passwort, zu alt …) verständlich weitergeben
-    if (e instanceof UnsupportedFileError) throw e;
+    if (e instanceof UnsupportedFileError || e instanceof ModuleLoadError) throw e;
     if (e instanceof Error && /^„/.test(e.message)) throw new UnsupportedFileError(e.message);
     throw new UnsupportedFileError(`„${file.name}“ konnte nicht gelesen werden.`);
   }

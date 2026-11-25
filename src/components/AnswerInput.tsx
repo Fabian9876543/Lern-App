@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { normalizeImage } from "../lib/files";
+import { closePdf, openPdf, renderPage } from "../lib/pdf";
 import { repo } from "../store/store";
 import type { AnswerResponse, Question } from "../types";
 import Markdown from "./Markdown";
@@ -143,7 +144,6 @@ function FreeTextInput({
       let source: Blob = file;
       // Lösung als PDF (z. B. aus GoodNotes oder Notizen am iPad): erste Seite als Bild.
       if (file.type === "application/pdf" || /\.pdf$/i.test(file.name)) {
-        const { openPdf, renderPage, closePdf } = await import("../lib/pdf");
         const doc = await openPdf(file);
         source = await renderPage(doc, 1, 2000);
         if (doc.numPages > 1) setImageNote(`Nur die erste von ${doc.numPages} Seiten wurde übernommen. Längere Lösungen am besten als Bildschirmfoto hochladen.`);

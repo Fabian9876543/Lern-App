@@ -1,5 +1,6 @@
 import platform from "@platform-impl";
 import { useState } from "react";
+import { loadModule } from "../lib/lazyImport";
 
 /** Dateiname aus dem Titel (ohne Zeichen, die Dateisysteme nicht mögen). */
 export function noteFileName(title: string): string {
@@ -39,7 +40,7 @@ export default function NoteDownloads({
     setBusy(true);
     setError(null);
     try {
-      const { notePdf } = await import("../lib/pdfExport");
+      const { notePdf } = await loadModule(() => import("../lib/pdfExport"), "Der PDF-Export");
       const bytes = await notePdf({ title, meta, markdown: body });
       await platform.saveFile(new Blob([bytes as BlobPart], { type: "application/pdf" }), `${name}.pdf`);
     } catch (e) {
