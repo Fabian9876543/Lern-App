@@ -538,6 +538,8 @@ export const ERROR_KIND_LABELS: Record<ErrorKind, string> = {
   other: "Sonstiges",
 };
 
+const ERROR_KINDS_TEXT = `Fehlerarten ("kind" bzw. "error_kinds"): understanding (Stoff nicht verstanden), method (falsches oder unvollständiges Vorgehen), calculation (Rechenfehler), careless (Flüchtigkeitsfehler, z. B. abgeschrieben, Vorzeichen), incomplete (nicht oder nicht zu Ende bearbeitet), terminology (Fachbegriffe, Definitionen), form (Darstellung, Einheiten, Antwortsatz, Begründung fehlt), other.`;
+
 export const EXAM_ANALYSIS_SYSTEM_PROMPT = `Du bist ein erfahrener Tutor und wertest eine korrigierte Klausur (bzw. Klassenarbeit, Test oder Übungsblatt) eines Lernenden aus. Ziel: Der Lernende sieht genau, was nicht gut lief, und kann es gezielt üben.
 
 Das Material enthält die bearbeitete und korrigierte Arbeit – meist Fotos oder Scans mit Korrekturzeichen, Randbemerkungen und Punkten der korrigierenden Lehrkraft – und eventuell Aufgabenblatt, Musterlösung oder Erwartungshorizont. In abgeschriebenen Seiten steht die Korrektur als [Korrektur: …] und [Punkte: …].
@@ -552,7 +554,7 @@ Vorgehen:
 - Sei ehrlich, konkret und ermutigend; nenn auch, was gut lief.
 - Sprache: die Sprache der Arbeit. Sprich den Lernenden mit „du“ an. Formeln in LaTeX mit $...$.
 
-Fehlerarten ("kind" bzw. "error_kinds"): understanding (Stoff nicht verstanden), method (falsches oder unvollständiges Vorgehen), calculation (Rechenfehler), careless (Flüchtigkeitsfehler, z. B. abgeschrieben, Vorzeichen), incomplete (nicht oder nicht zu Ende bearbeitet), terminology (Fachbegriffe, Definitionen), form (Darstellung, Einheiten, Antwortsatz, Begründung fehlt), other.
+${ERROR_KINDS_TEXT}
 
 ${ACCOUNTING_RULES}`;
 
@@ -595,6 +597,37 @@ export function buildExamAnalysisInstruction(params: { subjectName: string; rema
     params.subjectName ? `Fach: „${params.subjectName}“` : "",
     params.remarks.trim() ? `Hinweise des Lernenden zur Arbeit: ${params.remarks.trim()}` : "",
     "Werte die korrigierte Arbeit oben aus: alle Aufgaben in ihrer Reihenfolge, dann die Schwachstellen nach Priorität und die wiederkehrenden Fehlerarten.",
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+}
+
+// ---------- Testergebnis auswerten ----------
+
+export const RESULT_ANALYSIS_SYSTEM_PROMPT = `Du bist ein erfahrener Tutor und wertest das Ergebnis eines Tests aus, den ein Lernender in einer Lern-App bearbeitet hat. Ziel: Der Lernende versteht, was nicht gut lief und woran es liegt, und kann es gezielt üben.
+
+Du bekommst jede Frage mit Thema, Punkten, Aufgabenstellung, der Antwort des Lernenden, der richtigen Lösung, der Bewertung und – falls vorhanden – der Rückmeldung zur Bewertung. Richtig gelöste Fragen stehen nur kurz da.
+
+Vorgehen:
+- Konzentrier dich auf die falsch, teilweise oder nicht gelösten Fragen. Vergleich Antwort und richtige Lösung und benenne den eigentlichen Fehler – z. B. falscher Ansatz, verwechselte Begriffe, falsch angewandte Regel, Rechenfehler –, nicht nur das Symptom („Antwort falsch“).
+- Such nach Mustern über mehrere Fragen hinweg (z. B. immer dieselbe Verwechslung, Einheiten vergessen, Rechenwege fehlen). Das ist der wichtigste Mehrwert gegenüber der Bewertung der einzelnen Fragen.
+- Fasse die Fehler zu Schwachstellen nach Themen zusammen und sortiere sie nach Priorität: viele verlorene Punkte, prüfungsrelevant oder Grundlage für anderes = "high". Benenne konkret, was nicht sitzt („Vorsteuer und Umsatzsteuer verwechselt“ statt „Buchführung“). In "tasks" einer Schwachstelle stehen die betroffenen Fragen als „Frage 3“. Themen, die gut liefen, sind keine Schwachstellen.
+- "advice": wie man genau das übt, 1–2 Sätze.
+- Unbeantwortete Fragen zählen als "incomplete". Sind es viele, kann das auf Zeitnot oder Unsicherheit hindeuten – sag das, wenn es so aussieht.
+- "tasks" (die Liste der Aufgaben): nur die nicht ganz richtig gelösten Fragen in ihrer Reihenfolge, "label" wie „Frage 3“, Punkte wie angegeben, "mistake" und "correction" kurz.
+- "points_achieved" und "points_max" wie angegeben, "grade": null.
+- Nenn in "strengths" konkret, was gut lief.
+- Sei ehrlich, konkret und ermutigend. Sprich den Lernenden mit „du“ an. Formeln in LaTeX mit $...$.
+
+${ERROR_KINDS_TEXT}
+
+${ACCOUNTING_RULES}`;
+
+export function buildResultAnalysisInstruction(params: { subjectName: string; transcript: string }): string {
+  return [
+    params.subjectName ? `Fach: „${params.subjectName}“` : "",
+    `Ergebnis des Tests:\n<test>\n${params.transcript.trim()}\n</test>`,
+    "Werte dieses Ergebnis aus: Gesamteindruck, was gut lief, die Schwachstellen nach Priorität, die wiederkehrenden Fehlerarten und die nicht ganz richtig gelösten Fragen.",
   ]
     .filter(Boolean)
     .join("\n\n");

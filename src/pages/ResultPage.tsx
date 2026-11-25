@@ -1,10 +1,12 @@
 import platform from "@platform-impl";
 import { useEffect, useRef, useState } from "react";
+import { ERROR_KIND_LABELS } from "../ai/prompts";
 import Feedback, { formatPoints } from "../components/Feedback";
 import Markdown from "../components/Markdown";
 import QuestionMeta from "../components/QuestionMeta";
-import { attemptQuestions, formatDuration, selfGrade, startAttempt, summarize } from "../lib/attempts";
-import { cancelExamJob, clearExamJob, useExamJob } from "../lib/examAnalysis";
+import { attemptQuestions, formatDate, formatDuration, selfGrade, startAttempt, summarize } from "../lib/attempts";
+import { PRIORITY_LABELS, cancelExamJob, clearExamJob, useExamJob } from "../lib/examAnalysis";
+import { resultAnalysisKey, resultAnalysisOf, startResultAnalysis } from "../lib/resultAnalysis";
 import {
   PRACTICE_COUNTS,
   mistakesOf,
@@ -15,7 +17,7 @@ import {
 } from "../lib/resultPractice";
 import { navigate } from "../router";
 import { repo, useStore } from "../store/store";
-import type { AnswerRecord, Attempt, Question, Test, Verdict } from "../types";
+import type { AnswerRecord, Attempt, Importance, Question, Test, Verdict } from "../types";
 
 export default function ResultPage({ attemptId }: { attemptId: string }) {
   const store = useStore();
@@ -130,6 +132,8 @@ export default function ResultPage({ attemptId }: { attemptId: string }) {
         )}
       </div>
 
+      {(toRepeat.length > 0 || resultAnalysisOf(store.analyses, attempt.id)) && <ResultAnalysisCard attempt={attempt} />}
+
       {toRepeat.length > 0 && <ResultPractice attempt={attempt} test={test} />}
 
       {summary.byTopic.length > 1 && (
@@ -192,6 +196,123 @@ export default function ResultPage({ attemptId }: { attemptId: string }) {
   );
 }
 
+const PRIORITY_CHIP: Record<Importance, string> = { high: "chip-wrong", medium: "chip-partial", low: "chip-soft" };
+
+/** Schriftliche Auswertung von Claude: Muster, Schwachstellen, Übungstipps. */
+function ResultAnalysisCard({ attempt }: { attempt: Attempt }) {
+  const store = useStore();
+  const ai = platform.useAiStatus();
+  const key = resultAnalysisKey(attempt.id);
+  const job = useExamJob(key);
+  const analysis = resultAnalysisOf(store.analyses, attempt.id);
+
+  useEffect(() => {
+    if (job?.done && !job.error) clearExamJob(key);
+  }, [job?.done, job?.error, key]);
+
+  function start() {
+    clearExamJob(key);
+    startResultAnalysis(attempt.id);
+  }
+
+  const aiHint = ai.state === "unavailable" ? ai.reason : "";
+
+  if (job && !job.done) {
+    return (
+      <section className="card stack-sm" aria-busy="true">
+        <h2>Auswertung von Claude</h2>
+        <div className="practice-progress" aria-live="polite">
+          <div className="spinner spinner-sm" />
+          <span className="small">Claude wertet deinen Test aus … das dauert meist unter einer Minute.</span>
+          <button className="btn btn-ghost btn-sm" onClick={() => cancelExamJob(key)}>
+            Abbrechen
+          </button>
+        </div>
+      </section>
+    );
+  }
+
+  if (!analysis) {
+    return (
+      <section className="card stack-sm">
+        <h2>Auswertung von Claude</h2>
+        <p className="small">
+          Claude schaut sich deine Fehler an, erkennt Muster – z. B. immer dieselbe Verwechslung – und sagt dir, woran es
+          liegt und wie du es übst.
+        </p>
+        <div>
+          <button className="btn btn-ghost" disabled={ai.state !== "ready"} title={aiHint} onClick={start}>
+            📝 Von Claude auswerten lassen
+          </button>
+        </div>
+        {job?.error && <p className="error-text small">{job.error}</p>}
+      </section>
+    );
+  }
+
+  return (
+    <section className="stack-sm result-analysis" aria-labelledby="result-analysis-title">
+      <div className="card stack-sm">
+        <h2 id="result-analysis-title">Auswertung von Claude</h2>
+        {analysis.summary && <Markdown>{analysis.summary}</Markdown>}
+        {analysis.strengths.length > 0 && (
+          <div className="stack-xs">
+            <strong className="small">Das lief gut</strong>
+            <ul className="analysis-strengths">
+              {analysis.strengths.map((s, i) => (
+                <li key={i}>{s}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+        {analysis.errorPatterns.length > 0 && (
+          <div className="stack-xs">
+            <strong className="small">Wiederkehrende Fehler</strong>
+            <ul className="error-patterns">
+              {analysis.errorPatterns.map((e, i) => (
+                <li key={i}>
+                  <span className="chip chip-soft">{ERROR_KIND_LABELS[e.kind]}</span>
+                  <span>{e.description}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        {analysis.notes && <p className="muted small">{analysis.notes}</p>}
+        <p className="muted small">
+          Erstellt {formatDate(analysis.createdAt)} ·{" "}
+          <button className="link-btn" disabled={ai.state !== "ready"} title={aiHint} onClick={start}>
+            Neu auswerten
+          </button>
+        </p>
+        {job?.error && <p className="error-text small">{job.error}</p>}
+      </div>
+      {analysis.weaknesses.length > 0 && <h2>Daran solltest du arbeiten</h2>}
+      {analysis.weaknesses.map((w) => (
+        <article key={w.topic} className={`card stack-sm weakness weakness-${w.priority}`}>
+          <div className="row-between weakness-head">
+            <h3>{w.topic}</h3>
+            <span className={`chip ${PRIORITY_CHIP[w.priority]}`}>Priorität {PRIORITY_LABELS[w.priority]}</span>
+          </div>
+          {w.problem && <Markdown>{w.problem}</Markdown>}
+          {w.advice && (
+            <div className="weakness-advice">
+              <strong className="small">So übst du:</strong> <Markdown>{w.advice}</Markdown>
+            </div>
+          )}
+          {(w.tasks.length > 0 || w.pointsLost !== null) && (
+            <p className="muted small">
+              {w.tasks.length > 0 && <>Betrifft: {w.tasks.join(", ")}</>}
+              {w.tasks.length > 0 && w.pointsLost !== null && " · "}
+              {w.pointsLost !== null && <>{formatPoints(w.pointsLost)} Punkte verloren</>}
+            </p>
+          )}
+        </article>
+      ))}
+    </section>
+  );
+}
+
 /** Neuer Test mit neuen Aufgaben zu den Fehlern dieses Durchlaufs. */
 function ResultPractice({ attempt, test }: { attempt: Attempt; test: Test }) {
   const store = useStore();
@@ -203,6 +324,7 @@ function ResultPractice({ attempt, test }: { attempt: Attempt; test: Test }) {
   const topics = weakTopics(attempt, test);
   const [count, setCount] = useState(() => suggestedCount(mistakes));
   const created = store.tests.filter((t) => t.fromAttemptId === attempt.id).sort((a, b) => a.createdAt - b.createdAt);
+  const hasAnalysis = !!resultAnalysisOf(store.analyses, attempt.id);
 
   if (job && !job.done) watching.current = true;
   useEffect(() => {
@@ -221,7 +343,8 @@ function ResultPractice({ attempt, test }: { attempt: Attempt; test: Test }) {
       <h2>Gezielt weiterüben</h2>
       <p className="small">
         Claude erstellt einen <strong>neuen Test mit neuen Aufgaben</strong> zu genau dem, was noch nicht saß – mit deinen
-        Fehlern und den Rückmeldungen dazu, vom Einfachen bis zum Niveau dieses Tests.
+        Fehlern und den Rückmeldungen dazu{hasAnalysis ? " und der Auswertung oben" : ""}, vom Einfachen bis zum Niveau
+        dieses Tests.
       </p>
       {shown.length > 0 && (
         <div className="row-wrap weak-topics" aria-label="Schwerpunkte">

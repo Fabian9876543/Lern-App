@@ -98,6 +98,11 @@ Beide Varianten entstehen aus demselben Code (`src/targets/artifact` bzw. `src/t
   verlorenen Punkten, die einzelnen Fehler mit deiner Antwort, der richtigen Lösung und der Rückmeldung, aus demselben
   Material, vom Einfachen bis zum Niveau des Tests. Anzahl der Fragen wählbar (5–20, Vorschlag nach Zahl der Fehler).
   Der neue Test heißt „Übung: Fehler aus …“ und verlinkt zurück auf das Ergebnis.
+- **Auswertung von Claude:** Im Ergebnis „📝 Von Claude auswerten lassen“ – Claude schaut sich alle Fehler an (Aufgabe,
+  deine Antwort, richtige Lösung, Bewertung, Rückmeldung) und schreibt einen Gesamteindruck, was gut lief, wiederkehrende
+  Fehler (z. B. Fachbegriffe verwechselt, Rechenweg fehlt) und die Schwachstellen nach Priorität mit „So übst du“ und den
+  betroffenen Fragen. Die Auswertung wird gespeichert (auf allen Geräten), lässt sich neu erstellen und fließt in den
+  „Neuen Test zu meinen Fehlern“ ein. Wird der Test gelöscht, verschwindet sie mit.
 - „Neue Variante“: zum selben Material einen neuen Test mit anderen Aufgaben erzeugen
 - Fragen nachträglich bearbeiten, löschen oder eigene hinzufügen
 - **Lernplan pro Fach:** Prüfungsdatum und Lernzeit pro Wochentag angeben, Themen von Claude aus dem Material

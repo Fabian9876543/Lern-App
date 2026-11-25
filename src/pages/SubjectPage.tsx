@@ -31,7 +31,10 @@ export default function SubjectPage({ subjectId }: { subjectId: string }) {
   const tests = allTests.filter((t) => !t.planId);
   const planTestCount = allTests.length - tests.length;
   const plans = store.plans.filter((p) => p.subjectId === subjectId).sort((a, b) => a.examDate.localeCompare(b.examDate));
-  const analyses = store.analyses.filter((a) => a.subjectId === subjectId).sort((a, b) => b.createdAt - a.createdAt);
+  // Auswertungen von Testergebnissen stehen beim Ergebnis, nicht bei den Klausuren
+  const analyses = store.analyses
+    .filter((a) => a.subjectId === subjectId && !a.attemptId)
+    .sort((a, b) => b.createdAt - a.createdAt);
   const { fresh, used } = splitMaterials(materials, tests, plans, analyses);
   const notes = store.notes.filter((n) => n.subjectId === subjectId).sort((a, b) => b.createdAt - a.createdAt);
   const attempts = store.attempts.filter((a) => a.subjectId === subjectId);

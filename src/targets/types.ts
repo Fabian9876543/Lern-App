@@ -95,6 +95,14 @@ export interface ExamAnalysisParams {
   onProgress?: (p: GenerationProgress) => void;
 }
 
+export interface ResultAnalysisParams {
+  subjectName: string;
+  /** Der Testdurchlauf als Text: Fragen, Antworten, Bewertung, Rückmeldung. */
+  transcript: string;
+  signal?: AbortSignal;
+  onProgress?: (p: GenerationProgress) => void;
+}
+
 export interface NoteFixParams {
   subjectName: string;
   noteTitle: string;
@@ -166,6 +174,8 @@ export interface PlatformImpl {
   createMaterialNote(params: MaterialNoteParams): Promise<{ title: string | null; content: string; model: string }>;
   /** Wertet eine korrigierte Klausur aus: Fehler je Aufgabe, Schwachstellen, Fehlerarten. */
   analyzeExam(params: ExamAnalysisParams): Promise<{ analysis: GeneratedExamAnalysis; model: string }>;
+  /** Wertet ein Testergebnis aus der App aus: Schwachstellen, Muster, Übungstipps. */
+  analyzeResult(params: ResultAnalysisParams): Promise<{ analysis: GeneratedExamAnalysis; model: string }>;
   /** Erklärt eine markierte Stelle eines Lernzettels (und beantwortet Nachfragen dazu). */
   explainPassage(params: ExplainParams): Promise<ExplainResult>;
   /** Schlägt eine Korrektur für eine markierte Stelle im Lernzettel vor. */

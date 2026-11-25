@@ -1,9 +1,9 @@
 import platform from "@platform-impl";
-import { TYPE_LABELS } from "../ai/prompts";
+import { ERROR_KIND_LABELS, TYPE_LABELS } from "../ai/prompts";
 import { getState, repo } from "../store/store";
-import type { AnswerRecord, Attempt, GenerationSettings, Question, QuestionType, Test } from "../types";
+import type { AnswerRecord, Attempt, ExamAnalysis, GenerationSettings, Question, QuestionType, Test } from "../types";
 import { attemptQuestions } from "./attempts";
-import { runJob } from "./examAnalysis";
+import { PRIORITY_LABELS, runJob } from "./examAnalysis";
 import { newId } from "./ids";
 import { splitTest } from "./testParts";
 
@@ -65,14 +65,14 @@ export function suggestedCount(mistakes: number): number {
   return PRACTICE_COUNTS.find((c) => c >= mistakes) ?? PRACTICE_COUNTS[PRACTICE_COUNTS.length - 1];
 }
 
-const clip = (text: string, max: number) => {
+export const clip = (text: string, max: number) => {
   const flat = text.replace(/\s+/g, " ").trim();
   return flat.length > max ? `${flat.slice(0, max - 1).trimEnd()}…` : flat;
 };
 
-const points = (n: number) => n.toLocaleString("de-DE", { maximumFractionDigits: 1 });
+export const points = (n: number) => n.toLocaleString("de-DE", { maximumFractionDigits: 1 });
 
-function answerText(q: Question, rec?: AnswerRecord): string {
+export function answerText(q: Question, rec?: AnswerRecord): string {
   const r = rec?.response ?? {};
   switch (q.type) {
     case "single_choice":
@@ -86,7 +86,7 @@ function answerText(q: Question, rec?: AnswerRecord): string {
   }
 }
 
-function correctText(q: Question): string {
+export function correctText(q: Question): string {
   switch (q.type) {
     case "single_choice":
     case "multiple_choice":
@@ -113,7 +113,13 @@ function describeMistake({ question: q, record, lost }: Mistake): string {
 }
 
 /** Titel und Einstellungen für den neuen Test zu den Fehlern eines Durchlaufs. */
-export function resultPracticePlan(attempt: Attempt, test: Test, count: number): { title: string; settings: GenerationSettings } {
+export function resultPracticePlan(
+  attempt: Attempt,
+  test: Test,
+  count: number,
+  /** Schriftliche Auswertung von Claude zu diesem Durchlauf, falls vorhanden */
+  analysis?: ExamAnalysis,
+): { title: string; settings: GenerationSettings } {
   const questions = attemptQuestions(attempt, test);
   const max = questions.reduce((sum, q) => sum + q.points, 0);
   const score = questions.reduce((sum, q) => sum + scoreOf(attempt.answers[q.id]), 0);
@@ -129,6 +135,7 @@ export function resultPracticePlan(attempt: Attempt, test: Test, count: number):
     "Die Fehler im Einzelnen:",
     ...listed.map(describeMistake),
     mistakes.length > listed.length ? `… und ${mistakes.length - listed.length} weitere mit weniger verlorenen Punkten.` : "",
+    ...(analysis ? analysisLines(analysis) : []),
     "Verteile die Aufgaben nach den verlorenen Punkten (mehr zu Themen mit vielen Fehlern). Beginne etwas leichter und steigere bis zum Niveau des ursprünglichen Tests. Bau die Aufgaben so, dass genau diese Fehler wieder auffallen würden, und geh in Erklärung und Tipp darauf ein.",
   ];
 
@@ -146,16 +153,29 @@ export function resultPracticePlan(attempt: Attempt, test: Test, count: number):
   };
 }
 
+function analysisLines(a: ExamAnalysis): string[] {
+  const patterns = a.errorPatterns.map((e) => `${ERROR_KIND_LABELS[e.kind]}: ${e.description}`).join("; ");
+  return [
+    "Auswertung von Claude zu diesem Test (berücksichtige sie besonders):",
+    a.summary ? clip(a.summary, 600) : "",
+    ...a.weaknesses.map(
+      (w) => `- Schwachstelle ${w.topic} (Priorität ${PRIORITY_LABELS[w.priority]}): ${clip(w.problem, 300)}${w.advice ? ` – so üben: ${clip(w.advice, 300)}` : ""}`,
+    ),
+    patterns ? `Wiederkehrende Fehler: ${clip(patterns, 600)}` : "",
+  ];
+}
+
 export const resultPracticeKey = (attemptId: string) => `practice:attempt:${attemptId}`;
 
 /** Neuen Test zu den Fehlern erstellen; fertig: `resultId` ist der (erste) neue Test. */
 export function startResultPractice(attemptId: string, count: number): void {
   runJob(resultPracticeKey(attemptId), async (job, report) => {
-    const { attempts, tests, materials, subjects } = getState();
+    const { attempts, tests, materials, subjects, analyses } = getState();
     const attempt = attempts.find((a) => a.id === attemptId);
     const test = attempt && tests.find((t) => t.id === attempt.testId);
     if (!attempt || !test) throw new Error("Dieses Ergebnis gibt es nicht mehr.");
-    const { title, settings } = resultPracticePlan(attempt, test, count);
+    const analysis = analyses.filter((a) => a.attemptId === attemptId).sort((a, b) => b.createdAt - a.createdAt)[0];
+    const { title, settings } = resultPracticePlan(attempt, test, count, analysis);
     const generated = await platform.generateTest({
       subjectId: test.subjectId,
       subjectName: subjects.find((s) => s.id === test.subjectId)?.name ?? "",

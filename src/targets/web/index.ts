@@ -4,6 +4,7 @@ import { dexieBackend } from "../../store/dexieBackend";
 import type { AiStatus, PlatformImpl } from "../types";
 import AiSettings from "./AiSettings";
 import { analyzeExam } from "./analyzeExam";
+import { analyzeResult } from "./analyzeResult";
 import { analyzeTopics } from "./analyzeTopics";
 import { describeError } from "./client";
 import { explainPassage } from "./explain";
@@ -27,6 +28,7 @@ const impl: PlatformImpl = {
   createStudyNote,
   createMaterialNote,
   analyzeExam,
+  analyzeResult,
   explainPassage,
   fixNotePassage,
   canSearchWeb: true,

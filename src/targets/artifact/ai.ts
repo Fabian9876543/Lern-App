@@ -25,6 +25,8 @@ import {
   buildExamAnalysisInstruction,
   EXAM_ANALYSIS_JSON_FORMAT,
   EXAM_ANALYSIS_SYSTEM_PROMPT,
+  RESULT_ANALYSIS_SYSTEM_PROMPT,
+  buildResultAnalysisInstruction,
   cleanStudyNote,
   explainHistoryText,
   explainSystemPrompt,
@@ -54,6 +56,7 @@ import type {
   ExplainResult,
   NoteFix,
   NoteFixParams,
+  ResultAnalysisParams,
   GenerateParams,
   GenerationProgress,
   MaterialNameParams,
@@ -513,6 +516,28 @@ export async function analyzeExam(params: ExamAnalysisParams): Promise<{ analysi
     throw new AiResponseError("Claude hat in der Auswahl keine bearbeitete Klausur erkannt. Sind die richtigen Dateien ausgewählt?");
   }
   if (note) analysis.notes = [`Hinweis der App: ${note}`, analysis.notes].filter(Boolean).join("\n\n");
+  return { analysis, model: `claude.ai – ${TIERS.find((t) => t.id === tier)?.label ?? tier}` };
+}
+
+// ---------- Testergebnis auswerten ----------
+
+export async function analyzeResult(params: ResultAnalysisParams): Promise<{ analysis: GeneratedExamAnalysis; model: string }> {
+  const { signal, onProgress } = params;
+  const sample = await requireSample();
+  const tier = getSettings().generationTier;
+  const prompt = `${RESULT_ANALYSIS_SYSTEM_PROMPT}\n\n${EXAM_ANALYSIS_JSON_FORMAT}\n\n${buildResultAnalysisInstruction(params)}`;
+  await checkLimits(sample, prompt, 0);
+  onProgress?.({ phase: "analyzing", questionsSoFar: 0 });
+  const raw = await sample.json(prompt, {
+    modelTier: tier,
+    cache: false,
+    signal,
+    onText: ({ text }) => onProgress?.({ phase: "writing", questionsSoFar: countJsonKey(text, "label") }),
+  });
+  const analysis = coerceExamAnalysis(raw);
+  if (!analysis.summary.trim() && analysis.weaknesses.length === 0) {
+    throw new AiResponseError("Claude hat keine Auswertung geliefert. Bitte noch einmal versuchen.");
+  }
   return { analysis, model: `claude.ai – ${TIERS.find((t) => t.id === tier)?.label ?? tier}` };
 }
 

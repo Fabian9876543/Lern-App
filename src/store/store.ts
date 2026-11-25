@@ -163,6 +163,13 @@ function removeNotes(ids: string[]) {
   removeLocal("notes", ids);
 }
 
+/** Löscht Testdurchläufe samt der Auswertungen von Claude dazu. */
+function removeAttempts(ids: string[]) {
+  const set = new Set(ids);
+  removeLocal("analyses", state.analyses.filter((a) => a.attemptId && set.has(a.attemptId)).map((a) => a.id));
+  removeLocal("attempts", ids);
+}
+
 function find<T extends TableName>(table: T, id: string): Tables[T] | undefined {
   return (state[table] as Tables[T][]).find((r) => r.id === id);
 }
@@ -241,7 +248,7 @@ export const repo = {
     if (t) upsert("tests", { ...t, ...patch });
   },
   deleteTest(id: string) {
-    removeLocal("attempts", state.attempts.filter((a) => a.testId === id).map((a) => a.id));
+    removeAttempts(state.attempts.filter((a) => a.testId === id).map((a) => a.id));
     removeLocal("tests", [id]);
   },
 
@@ -266,7 +273,7 @@ export const repo = {
   /** Löscht den Plan samt der Tests, die nur für ihn erstellt wurden. */
   deletePlan(id: string) {
     const testIds = state.tests.filter((t) => t.planId === id).map((t) => t.id);
-    removeLocal("attempts", state.attempts.filter((a) => testIds.includes(a.testId)).map((a) => a.id));
+    removeAttempts(state.attempts.filter((a) => testIds.includes(a.testId)).map((a) => a.id));
     removeLocal("tests", testIds);
     removeNotes(state.notes.filter((n) => n.planId === id).map((n) => n.id));
     removeLocal("plans", [id]);

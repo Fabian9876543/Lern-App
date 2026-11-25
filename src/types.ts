@@ -324,6 +324,8 @@ export interface ExamAnalysis {
   id: string;
   subjectId: string;
   title: string;
+  /** Auswertung eines Testdurchlaufs in der App (statt einer hochgeladenen Klausur). */
+  attemptId?: string;
   /** Hochgeladene Klausur (und ggf. Aufgabenblatt, Lösung, Erwartungshorizont). */
   materialIds: string[];
   /** Was die lernende Person dazu angegeben hat. */

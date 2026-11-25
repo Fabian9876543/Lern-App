@@ -4,6 +4,7 @@ import AiSettings from "./AiSettings";
 import {
   aiStatus,
   analyzeExam,
+  analyzeResult,
   analyzeTopics,
   createMaterialNote,
   createStudyNote,
@@ -26,6 +27,7 @@ const impl: PlatformImpl = {
   createStudyNote,
   createMaterialNote,
   analyzeExam,
+  analyzeResult,
   explainPassage,
   fixNotePassage,
   canSearchWeb: false,
