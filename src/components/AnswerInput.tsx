@@ -1,7 +1,9 @@
 import { useState } from "react";
-import { normalizeImage } from "../lib/files";
+import { createPortal } from "react-dom";
+import { isAnswerFile, normalizeImage } from "../lib/files";
 import { closePdf, openPdf, renderPage } from "../lib/pdf";
 import { repo } from "../store/store";
+import { useWindowFileDrop } from "../lib/useWindowFileDrop";
 import type { AnswerResponse, Question } from "../types";
 import Markdown from "./Markdown";
 
@@ -136,27 +138,42 @@ function FreeTextInput({
   const [imageNote, setImageNote] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
 
-  async function addImage(file: File) {
+  async function addImage(file: File, note: string | null = null) {
     setImageError(null);
     setImageNote(null);
     setUploading(true);
     try {
       let source: Blob = file;
+      let pageNote: string | null = null;
       // Lösung als PDF (z. B. aus GoodNotes oder Notizen am iPad): erste Seite als Bild.
       if (file.type === "application/pdf" || /\.pdf$/i.test(file.name)) {
         const doc = await openPdf(file);
         source = await renderPage(doc, 1, 2000);
-        if (doc.numPages > 1) setImageNote(`Nur die erste von ${doc.numPages} Seiten wurde übernommen. Längere Lösungen am besten als Bildschirmfoto hochladen.`);
+        if (doc.numPages > 1) pageNote = `Nur die erste von ${doc.numPages} Seiten wurde übernommen. Längere Lösungen am besten als Bildschirmfoto hochladen.`;
         await closePdf(doc);
       }
       const blob = await normalizeImage(source, 1600, 900_000);
       onChange({ ...response, image: await repo.storeAnswerImage(blob) });
+      const notes = [note, pageNote].filter(Boolean).join(" ");
+      if (notes) setImageNote(notes);
     } catch (e) {
       setImageError(e instanceof Error ? e.message : String(e));
     } finally {
       setUploading(false);
     }
   }
+
+  // Lösung per Drag & Drop: Datei irgendwo auf die Seite ziehen
+  const dragging = useWindowFileDrop(!disabled, (files) => {
+    if (uploading) return;
+    const file = files.find(isAnswerFile);
+    if (!file) {
+      setImageNote(null);
+      setImageError("Bitte ein Foto, Bild oder eine PDF ablegen.");
+      return;
+    }
+    void addImage(file, files.length > 1 ? `Pro Aufgabe passt eine Datei – übernommen wurde „${file.name}“.` : null);
+  });
 
   return (
     <div className="stack-sm">
@@ -180,23 +197,37 @@ function FreeTextInput({
         </div>
       ) : (
         !disabled && (
-          <label className="btn btn-ghost btn-sm file-btn">
-            {uploading ? "Foto wird gespeichert …" : "📷 Foto oder Bild der Lösung anhängen"}
-            <input
-              type="file"
-              accept="image/*,application/pdf"
-              hidden
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                e.target.value = "";
-                if (file) addImage(file);
-              }}
-            />
-          </label>
+          <div className="answer-attach">
+            <label className="btn btn-ghost btn-sm file-btn">
+              {uploading ? "Foto wird gespeichert …" : "📷 Foto oder Bild der Lösung anhängen"}
+              <input
+                type="file"
+                accept="image/*,application/pdf"
+                hidden
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  e.target.value = "";
+                  if (file) addImage(file);
+                }}
+              />
+            </label>
+            {!uploading && <span className="muted small drop-hint">oder Datei hierher ziehen</span>}
+          </div>
         )
       )}
       {imageNote && <p className="muted small">{imageNote}</p>}
       {imageError && <p className="error-text">{imageError}</p>}
+      {dragging &&
+        createPortal(
+          <div className="drop-overlay" aria-hidden="true">
+            <div className="drop-overlay-box">
+              <span className="filedrop-icon">📄</span>
+              <strong>{response.image ? "Neue Lösung hier ablegen" : "Lösung hier ablegen"}</strong>
+              <span className="muted small">{response.image ? "ersetzt das bisherige Bild" : "Foto, Bild oder PDF"}</span>
+            </div>
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }

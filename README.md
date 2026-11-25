@@ -171,6 +171,10 @@ Beide Varianten entstehen aus demselben Code (`src/targets/artifact` bzw. `src/t
   Moment auch am MacBook („↻ Vom anderen Gerät übernommen“) und kann dort geprüft werden. Text, Bewertung, die aktuelle
   Frage und das Beenden des Tests werden ebenso abgeglichen; was man auf einem Gerät gerade tippt, wird dabei nicht
   überschrieben. In der Web-Version liegen die Daten nur im jeweiligen Browser – dort gibt es keinen Abgleich.
+- **Lösung per Drag & Drop:** Bei Rechen- und Freitextaufgaben ein Foto, Bild oder eine PDF einfach irgendwo auf die
+  Seite ziehen („Lösung hier ablegen“) – z. B. aus dem Finder, vom Schreibtisch oder am iPad aus Fotos/Dateien.
+  Ein neues Bild ersetzt das bisherige; bei mehreren Dateien wird die erste passende übernommen. Gezogener Text landet
+  wie gewohnt im Textfeld.
 - **Robust bei wackliger Verbindung:** Der PDF-Leser wird kurz nach dem Start im Hintergrund geladen und bleibt bereit –
   PDFs klappen so auch, wenn die Verbindung später kurz weg ist oder die App tagelang offen bleibt. Programmteile, die
   erst bei Bedarf geladen werden (PDF-Leser, PDF-Export, Word/Excel), werden bei einem Verbindungsfehler automatisch

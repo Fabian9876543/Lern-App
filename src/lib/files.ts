@@ -202,6 +202,11 @@ export async function prepareFile(file: File): Promise<PreparedFile> {
  * Bringt ein Bild in ein Format, das die API akzeptiert (JPEG/PNG/WebP/GIF),
  * und verkleinert sehr große Bilder (z. B. Handyfotos).
  */
+/** Bild oder PDF – was sich im Test als Lösung anhängen lässt (Ordner und andere Dateien nicht). */
+export function isAnswerFile(file: { name: string; type: string }): boolean {
+  return file.type.startsWith("image/") || file.type === "application/pdf" || /\.(pdf|heic|heif)$/i.test(file.name);
+}
+
 export async function normalizeImage(file: Blob, maxEdge = MAX_IMAGE_EDGE, maxBytes = MAX_IMAGE_BYTES): Promise<Blob> {
   if (API_IMAGE_TYPES.has(file.type) && file.size <= maxBytes && file.type !== "image/gif") {
     const dims = await imageSize(file).catch(() => null);
