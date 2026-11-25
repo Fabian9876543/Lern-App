@@ -1,10 +1,21 @@
+import platform from "@platform-impl";
+import { useEffect, useRef, useState } from "react";
 import Feedback, { formatPoints } from "../components/Feedback";
 import Markdown from "../components/Markdown";
 import QuestionMeta from "../components/QuestionMeta";
 import { attemptQuestions, formatDuration, selfGrade, startAttempt, summarize } from "../lib/attempts";
+import { cancelExamJob, clearExamJob, useExamJob } from "../lib/examAnalysis";
+import {
+  PRACTICE_COUNTS,
+  mistakesOf,
+  resultPracticeKey,
+  startResultPractice,
+  suggestedCount,
+  weakTopics,
+} from "../lib/resultPractice";
 import { navigate } from "../router";
 import { repo, useStore } from "../store/store";
-import type { AnswerRecord, Question, Verdict } from "../types";
+import type { AnswerRecord, Attempt, Question, Test, Verdict } from "../types";
 
 export default function ResultPage({ attemptId }: { attemptId: string }) {
   const store = useStore();
@@ -119,6 +130,8 @@ export default function ResultPage({ attemptId }: { attemptId: string }) {
         )}
       </div>
 
+      {toRepeat.length > 0 && <ResultPractice attempt={attempt} test={test} />}
+
       {summary.byTopic.length > 1 && (
         <section className="card stack-sm">
           <h2>Nach Thema</h2>
@@ -176,6 +189,101 @@ export default function ResultPage({ attemptId }: { attemptId: string }) {
         })}
       </section>
     </div>
+  );
+}
+
+/** Neuer Test mit neuen Aufgaben zu den Fehlern dieses Durchlaufs. */
+function ResultPractice({ attempt, test }: { attempt: Attempt; test: Test }) {
+  const store = useStore();
+  const ai = platform.useAiStatus();
+  const key = resultPracticeKey(attempt.id);
+  const job = useExamJob(key);
+  const watching = useRef(false);
+  const mistakes = mistakesOf(attempt, test).length;
+  const topics = weakTopics(attempt, test);
+  const [count, setCount] = useState(() => suggestedCount(mistakes));
+  const created = store.tests.filter((t) => t.fromAttemptId === attempt.id).sort((a, b) => a.createdAt - b.createdAt);
+
+  if (job && !job.done) watching.current = true;
+  useEffect(() => {
+    if (!job?.done) return;
+    // Nur weiterleiten, wenn man beim Erstellen auf der Seite war – sonst steht der Test einfach in der Liste.
+    if (job.resultId && watching.current) navigate(`/test/${job.resultId}`);
+    if (!job.error) clearExamJob(key);
+    watching.current = false;
+  }, [job?.done, job?.resultId, job?.error, key]);
+
+  const shown = topics.slice(0, 4);
+  const p = job?.progress;
+
+  return (
+    <section className="card stack-sm practice-card">
+      <h2>Gezielt weiterüben</h2>
+      <p className="small">
+        Claude erstellt einen <strong>neuen Test mit neuen Aufgaben</strong> zu genau dem, was noch nicht saß – mit deinen
+        Fehlern und den Rückmeldungen dazu, vom Einfachen bis zum Niveau dieses Tests.
+      </p>
+      {shown.length > 0 && (
+        <div className="row-wrap weak-topics" aria-label="Schwerpunkte">
+          <span className="muted small">Schwerpunkte:</span>
+          {shown.map((t) => (
+            <span key={t.topic} className="chip chip-soft" title={`${formatPoints(t.score)} von ${formatPoints(t.max)} Punkten`}>
+              {t.topic}
+            </span>
+          ))}
+          {topics.length > shown.length && <span className="muted small">+ {topics.length - shown.length} weitere</span>}
+        </div>
+      )}
+      {job && !job.done ? (
+        <div className="practice-progress" aria-live="polite" aria-busy="true">
+          <div className="spinner spinner-sm" />
+          <span className="small">
+            {p?.phase === "writing" && p.questionsSoFar > 0
+              ? `${p.questionsSoFar} von ${count} Aufgaben erstellt …`
+              : "Claude erstellt neue Aufgaben zu deinen Fehlern …"}
+          </span>
+          <button className="btn btn-ghost btn-sm" onClick={() => cancelExamJob(key)}>
+            Abbrechen
+          </button>
+        </div>
+      ) : (
+        <div className="row-wrap">
+          <label className="small practice-count">
+            Fragen
+            <select className="select select-sm" value={count} onChange={(e) => setCount(Number(e.target.value))}>
+              {PRACTICE_COUNTS.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button
+            className="btn btn-primary"
+            disabled={ai.state !== "ready"}
+            title={ai.state === "unavailable" ? ai.reason : ""}
+            onClick={() => {
+              clearExamJob(key);
+              startResultPractice(attempt.id, count);
+            }}
+          >
+            ✨ Neuen Test zu meinen Fehlern erstellen
+          </button>
+        </div>
+      )}
+      {job?.error && <p className="error-text small">{job.error}</p>}
+      {created.length > 0 && (
+        <p className="small">
+          Schon erstellt:{" "}
+          {created.map((t, i) => (
+            <span key={t.id}>
+              {i > 0 && ", "}
+              <a href={`#/test/${t.id}`}>{t.title}</a>
+            </span>
+          ))}
+        </p>
+      )}
+    </section>
   );
 }
 

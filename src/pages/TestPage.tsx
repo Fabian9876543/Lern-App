@@ -135,8 +135,14 @@ export default function TestPage({ testId }: { testId: string }) {
           </div>
         </div>
         <p className="muted small">
-          {test.mode === "exact" ? "Originalaufgaben" : "Neue Aufgaben"} · {test.questions.length} Fragen ·{" "}
-          {totalPoints} Punkte · erstellt {formatDate(test.createdAt)}
+          {test.fromAttemptId ? "Übung zu deinen Fehlern" : test.mode === "exact" ? "Originalaufgaben" : "Neue Aufgaben"} ·{" "}
+          {test.questions.length} Fragen · {totalPoints} Punkte · erstellt {formatDate(test.createdAt)}
+          {test.fromAttemptId && store.attempts.some((a) => a.id === test.fromAttemptId) && (
+            <>
+              {" "}
+              · <a href={`#/result/${test.fromAttemptId}`}>Ergebnis, aus dem er entstand</a>
+            </>
+          )}
           {test.materialIds.length === 0 && test.mode === "generated" && <> · aus Claudes Fachwissen (ohne Material)</>}
         </p>
       </div>

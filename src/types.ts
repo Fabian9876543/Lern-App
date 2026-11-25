@@ -105,6 +105,8 @@ export interface Test {
   planId?: string;
   /** Übung zu den Schwachstellen einer Klausur-Analyse. */
   analysisId?: string;
+  /** Neuer Test zu den Fehlern aus diesem Testdurchlauf. */
+  fromAttemptId?: string;
 }
 
 export type Verdict = "correct" | "partial" | "wrong";

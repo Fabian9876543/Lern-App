@@ -2425,6 +2425,14 @@ body:has(.mark-bar) .container {
 .practice-card {
   border: 1px solid color-mix(in srgb, var(--primary) 35%, var(--border));
 }
+.practice-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.weak-topics {
+  align-items: center;
+}
 .practice-progress {
   display: flex;
   align-items: center;

@@ -293,7 +293,7 @@ export default function SubjectPage({ subjectId }: { subjectId: string }) {
                 <div>
                   <strong>{t.title}</strong>
                   <div className="muted small">
-                    {t.analysisId ? "Übung zur Klausur" : t.mode === "exact" ? "Originalaufgaben" : "Neue Aufgaben"} · {t.questions.length} Fragen ·{" "}
+                    {t.analysisId ? "Übung zur Klausur" : t.fromAttemptId ? "Übung zu deinen Fehlern" : t.mode === "exact" ? "Originalaufgaben" : "Neue Aufgaben"} · {t.questions.length} Fragen ·{" "}
                     {formatDate(t.createdAt)}
                   </div>
                 </div>

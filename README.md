@@ -92,7 +92,12 @@ Beide Varianten entstehen aus demselben Code (`src/targets/artifact` bzw. `src/t
   nächsten weiter. Bricht eine Antwort doch mittendrin ab, bleiben alle fertigen Aufgaben erhalten. Wird der Test
   größer, als ein Eintrag im claude.ai-Speicher sein darf, wird er in gleich große Tests „(Teil 1 von N)“ aufgeteilt.
 - Formeln werden mit LaTeX/KaTeX schön dargestellt
-- Ergebnisse mit Auswertung nach Thema, Verlauf pro Test und **„Fehler wiederholen“**
+- Ergebnisse mit Auswertung nach Thema, Verlauf pro Test und **„Fehler wiederholen“** (dieselben Fragen noch einmal)
+- **Gezielt weiterüben nach einem Test:** Im Ergebnis „✨ Neuen Test zu meinen Fehlern erstellen“ – Claude erstellt
+  einen neuen Test mit neuen Aufgaben (andere Zahlen und Fragestellungen) zu genau dem, was nicht saß: Themen nach
+  verlorenen Punkten, die einzelnen Fehler mit deiner Antwort, der richtigen Lösung und der Rückmeldung, aus demselben
+  Material, vom Einfachen bis zum Niveau des Tests. Anzahl der Fragen wählbar (5–20, Vorschlag nach Zahl der Fehler).
+  Der neue Test heißt „Übung: Fehler aus …“ und verlinkt zurück auf das Ergebnis.
 - „Neue Variante“: zum selben Material einen neuen Test mit anderen Aufgaben erzeugen
 - Fragen nachträglich bearbeiten, löschen oder eigene hinzufügen
 - **Lernplan pro Fach:** Prüfungsdatum und Lernzeit pro Wochentag angeben, Themen von Claude aus dem Material

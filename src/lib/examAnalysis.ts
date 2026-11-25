@@ -201,12 +201,20 @@ export function clearExamJob(key: string): void {
   notify();
 }
 
-function run(key: string, work: (job: ExamJob) => Promise<string>): void {
+/**
+ * Startet einen Auftrag im Hintergrund (läuft beim Seitenwechsel weiter).
+ * `work` liefert die ID des Ergebnisses und meldet Fortschritt über `report`.
+ */
+export function runJob(key: string, work: (job: ExamJob, report: (p: GenerationProgress) => void) => Promise<string>): void {
   if (jobs.get(key)?.done === false) return;
   const job: ExamJob = { progress: { phase: "preparing", questionsSoFar: 0 }, controller: new AbortController(), done: false };
   jobs.set(key, job);
   notify();
-  work(job)
+  const report = (p: GenerationProgress) => {
+    job.progress = p;
+    notify();
+  };
+  work(job, report)
     .then((id) => {
       job.resultId = id;
     })
@@ -224,7 +232,7 @@ export const practiceJobKey = (analysisId: string, target: PracticeTarget) => `p
 
 /** Klausur auswerten lassen; fertig: `resultId` ist die neue Analyse. */
 export function startExamAnalysis(req: { subjectId: string; materialIds: string[]; remarks: string }): void {
-  run(newAnalysisKey(req.subjectId), async (job) => {
+  runJob(newAnalysisKey(req.subjectId), async (job) => {
     const { materials, subjects } = getState();
     const chosen = materials.filter((m) => req.materialIds.includes(m.id));
     if (chosen.length === 0) throw new Error("Die ausgewählten Dateien gibt es nicht mehr.");
@@ -255,7 +263,7 @@ export function startExamAnalysis(req: { subjectId: string; materialIds: string[
 
 /** Übungstest zu einer Analyse erstellen; fertig: `resultId` ist der (erste) neue Test. */
 export function startPractice(analysisId: string, target: PracticeTarget): void {
-  run(practiceJobKey(analysisId, target), async (job) => {
+  runJob(practiceJobKey(analysisId, target), async (job) => {
     const { analyses, subjects } = getState();
     const a = analyses.find((x) => x.id === analysisId);
     if (!a) throw new Error("Diese Klausur-Analyse gibt es nicht mehr.");
