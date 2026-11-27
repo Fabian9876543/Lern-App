@@ -6,6 +6,7 @@ import AiSettings from "./AiSettings";
 import { analyzeExam } from "./analyzeExam";
 import { analyzeResult } from "./analyzeResult";
 import { analyzeTopics } from "./analyzeTopics";
+import { checkSolution } from "./checkSolution";
 import { describeError } from "./client";
 import { explainPassage } from "./explain";
 import { fixNotePassage } from "./fixNote";
@@ -31,6 +32,7 @@ const impl: PlatformImpl = {
   analyzeResult,
   explainPassage,
   fixNotePassage,
+  checkSolution,
   canSearchWeb: true,
   suggestMaterialName,
   describeError,

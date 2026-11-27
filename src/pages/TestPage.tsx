@@ -2,6 +2,7 @@ import platform from "@platform-impl";
 import { useState } from "react";
 import { describeCorrectAnswer } from "../ai/normalize";
 import { confirmDialog, promptDialog } from "../components/Dialogs";
+import { SolutionFixNote } from "../components/Feedback";
 import Markdown from "../components/Markdown";
 import MaterialList from "../components/MaterialList";
 import MaterialPreview from "../components/MaterialPreview";
@@ -11,6 +12,7 @@ import QuestionEditor from "../components/QuestionEditor";
 import QuestionMeta from "../components/QuestionMeta";
 import { formatDate, startAttempt, summarize } from "../lib/attempts";
 import { newId } from "../lib/ids";
+import { solutionChanged } from "../lib/solutionCheck";
 import { splitTest } from "../lib/testParts";
 import { navigate } from "../router";
 import { repo, useStore } from "../store/store";
@@ -61,8 +63,11 @@ export default function TestPage({ testId }: { testId: string }) {
     navigate(`/subject/${test!.subjectId}`, { replace: true });
   }
 
-  function saveQuestion(q: Question) {
-    const exists = test!.questions.some((x) => x.id === q.id);
+  function saveQuestion(edited: Question) {
+    const before = test!.questions.find((x) => x.id === edited.id);
+    // Selbst an der Lösung geändert: Der Hinweis auf Claudes Korrektur stimmt dann nicht mehr.
+    const q = before?.solutionFix && solutionChanged(before, edited) ? { ...edited, solutionFix: undefined } : edited;
+    const exists = !!before;
     const questions = exists ? test!.questions.map((x) => (x.id === q.id ? q : x)) : [...test!.questions, q];
     repo.updateTest(testId, { questions });
     setEditing(null);
@@ -278,6 +283,7 @@ export default function TestPage({ testId }: { testId: string }) {
                 <summary className="label">Musterlösung</summary>
                 <Markdown>{q.modelSolution}</Markdown>
               </details>
+              {q.solutionFix && <SolutionFixNote fix={q.solutionFix} />}
               <div className="row-wrap">
                 <button className="btn btn-ghost btn-sm" onClick={() => setEditing(q)}>
                   Bearbeiten

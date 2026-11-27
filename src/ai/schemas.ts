@@ -114,6 +114,20 @@ export const ExamAnalysisSchema = z.object({
 
 export type GeneratedExamAnalysis = z.infer<typeof ExamAnalysisSchema>;
 
+export const SolutionCheckSchema = z.object({
+  solution_wrong: z.boolean().describe("true nur, wenn die hinterlegte Lösung tatsächlich falsch oder unvollständig ist"),
+  reason: z.string().describe("An die lernende Person: was falsch war und was richtig ist – bzw. warum die Lösung stimmt; 1–3 Sätze"),
+  correct_options: z.array(z.number().int()).describe("Korrigiert: 0-basierte Indizes der richtigen Antwortmöglichkeiten, sonst leer"),
+  numeric_answer: z.number().nullable().describe("Korrigiert: richtiges Zahlenergebnis bei Zahlenfragen, sonst null"),
+  numeric_tolerance: z.number().nullable().describe("Korrigiert: erlaubte absolute Abweichung, sonst null"),
+  unit: z.string().nullable().describe("Korrigiert: Einheit des Ergebnisses, sonst null"),
+  accepted_answers: z.array(z.string()).describe("Korrigiert: alle akzeptierten Varianten bei Kurzantworten, sonst leer"),
+  model_solution: z.string().describe("Korrigiert: vollständige Musterlösung mit Lösungsweg; leer, wenn die Lösung stimmt"),
+  explanation: z.string().describe("Korrigiert: kurze Erklärung der Lösung; leer, wenn die Lösung stimmt"),
+});
+
+export type SolutionCheckResult = z.infer<typeof SolutionCheckSchema>;
+
 export const NoteFixSchema = z.object({
   old: z.string().describe("Ausschnitt aus dem Markdown des Lernzettels, zeichengenau; leer, wenn die Stelle stimmt"),
   new: z.string().describe("Ersatz für den Ausschnitt; leer, wenn die Stelle stimmt"),

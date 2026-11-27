@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { describeCorrectAnswer } from "../ai/normalize";
 import type { AnswerRecord, Question, Verdict } from "../types";
 import Markdown from "./Markdown";
@@ -13,10 +14,13 @@ export default function Feedback({
   question,
   record,
   onSelfGrade,
+  children,
 }: {
   question: Question;
   record: AnswerRecord;
   onSelfGrade: (v: Verdict) => void;
+  /** Zusätzliches unter der Rückmeldung, z. B. „Lösung stimmt nicht?“ */
+  children?: ReactNode;
 }) {
   const verdict = record.verdict;
   const showShortAnswer = question.type !== "free_text";
@@ -65,6 +69,7 @@ export default function Feedback({
           <Markdown>{question.explanation}</Markdown>
         </details>
       )}
+      {question.solutionFix && <SolutionFixNote fix={question.solutionFix} />}
 
       <div className="self-grade">
         <span className="muted small">{verdict ? "Bewertung anpassen:" : "Wie war deine Antwort?"}</span>
@@ -81,7 +86,17 @@ export default function Feedback({
           ))}
         </div>
       </div>
+      {children}
     </div>
+  );
+}
+
+/** Hinweis, dass Claude die Lösung nach „Lösung stimmt nicht?“ korrigiert hat. */
+export function SolutionFixNote({ fix }: { fix: NonNullable<Question["solutionFix"]> }) {
+  return (
+    <Markdown className="muted small solution-fixed">
+      {`✎ Lösung am ${new Date(fix.at).toLocaleDateString("de-DE")} von Claude korrigiert${fix.reason ? `: ${fix.reason}` : "."}`}
+    </Markdown>
   );
 }
 

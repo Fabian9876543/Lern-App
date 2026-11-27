@@ -1,6 +1,6 @@
 import type { ComponentType } from "react";
 import type { Backend } from "../store/types";
-import type { GeneratedExamAnalysis, TopicAnalysis } from "../ai/schemas";
+import type { GeneratedExamAnalysis, SolutionCheckResult, TopicAnalysis } from "../ai/schemas";
 import type {
   AnswerResponse,
   GenerationSettings,
@@ -123,6 +123,20 @@ export interface NoteFix {
   reason: string;
 }
 
+export interface SolutionCheckParams {
+  subjectName: string;
+  question: Question;
+  /** Antwort der lernenden Person als Text (leer = keine). */
+  answer: string;
+  /** Rückmeldung zur Bewertung, falls vorhanden. */
+  feedback: string;
+  /** Was laut der lernenden Person falsch ist (optional). */
+  request: string;
+  /** Material des Tests; leer = aus Claudes Fachwissen. */
+  materials: Material[];
+  signal?: AbortSignal;
+}
+
 export interface ExplainParams {
   subjectName: string;
   noteTitle: string;
@@ -180,6 +194,8 @@ export interface PlatformImpl {
   explainPassage(params: ExplainParams): Promise<ExplainResult>;
   /** Schlägt eine Korrektur für eine markierte Stelle im Lernzettel vor. */
   fixNotePassage(params: NoteFixParams): Promise<NoteFix>;
+  /** Prüft die hinterlegte Lösung einer Aufgabe und liefert ggf. die korrigierte Lösung. */
+  checkSolution(params: SolutionCheckParams): Promise<SolutionCheckResult>;
   /** Kann Claude beim Erklären im Internet suchen? */
   canSearchWeb: boolean;
   /** Schlägt für ein Material mit nichtssagendem Dateinamen Name und Rolle vor. */

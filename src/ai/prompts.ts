@@ -1,4 +1,5 @@
 import type { Difficulty, ErrorKind, GenerationSettings, MarkLevel, NoteLength, Question, QuestionType } from "../types";
+import { formatNumber } from "./normalize";
 
 export const TYPE_LABELS: Record<QuestionType, string> = {
   single_choice: "Single Choice",
@@ -666,6 +667,75 @@ export function buildNoteFixTask(params: {
     params.request.trim()
       ? `Was laut der lernenden Person falsch ist: ${params.request.trim()}`
       : "Die lernende Person meint, dass die Stelle falsch oder missverständlich ist.",
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+}
+
+// ---------- Lösung einer Aufgabe prüfen („Lösung stimmt nicht?“) ----------
+
+export const SOLUTION_CHECK_SYSTEM_PROMPT = `Du prüfst die hinterlegte Lösung einer Übungsaufgabe in einer Lern-App. Die lernende Person meint, dass diese Lösung falsch ist.
+
+- Löse die Aufgabe zuerst selbst, sorgfältig und Schritt für Schritt – anhand des Materials, falls beigefügt, sonst mit deinem Fachwissen. Steht die Lösung im Material, gilt sie, außer sie wurde offensichtlich falsch übernommen.
+- Vergleich dann mit der hinterlegten Lösung. Berücksichtige, was die Person schreibt, aber übernimm nichts Falsches: Oft stimmt die Lösung und die Person hat sich vertan.
+- "solution_wrong": true nur, wenn die hinterlegte Lösung tatsächlich falsch oder unvollständig ist – z. B. falsches Ergebnis, falsche Antwortmöglichkeit als richtig markiert, Fehler im Lösungsweg, eine richtige Variante fehlt bei den akzeptierten Antworten, Toleranz oder Einheit passt nicht. Andere Formulierungen oder Kleinigkeiten zählen nicht.
+- "reason": 1–3 Sätze an die Person („du“): was falsch war und was richtig ist – bzw. warum die Lösung stimmt und wo der Denkfehler vermutlich liegt.
+- Ist die Lösung falsch, gib die korrigierte Lösung vollständig an. Aufgabenformat, Aufgabenstellung und Antwortmöglichkeiten bleiben unverändert:
+  - Auswahlfragen: "correct_options" mit den 0-basierten Indizes der richtigen Antwortmöglichkeiten.
+  - Zahlenfragen: "numeric_answer", "numeric_tolerance" (absolute Abweichung, z. B. für Rundung) und "unit".
+  - Kurzantworten: "accepted_answers" mit allen richtigen Varianten.
+  - Immer: "model_solution" (vollständige Musterlösung mit Lösungsweg) und "explanation" (kurz, mit typischen Fehlern). Behalte Stil, Begriffe und Schreibweisen der bisherigen Lösung bei und ändere nur, was nötig ist.
+- Stimmt die Lösung, lass die übrigen Felder leer bzw. null.
+- Formeln in LaTeX mit $...$.
+
+${ACCOUNTING_RULES}`;
+
+export const SOLUTION_CHECK_JSON_FORMAT = `Antworte ausschließlich mit einem JSON-Objekt:
+{"solution_wrong": true | false, "reason": "1–3 Sätze", "correct_options": [0], "numeric_answer": 3.14 | null, "numeric_tolerance": 0.01 | null, "unit": "m/s" | null, "accepted_answers": ["…"], "model_solution": "Vollständige Musterlösung", "explanation": "Kurze Erklärung"}
+Achtung: In JSON-Strings muss jeder Backslash verdoppelt werden, also z. B. "$\\\\frac{1}{2}$" für $\\frac{1}{2}$.`;
+
+/** Die hinterlegte Lösung einer Aufgabe als Text für Claude. */
+export function storedSolutionText(q: Question): string {
+  const lines: string[] = [];
+  if (q.type === "single_choice" || q.type === "multiple_choice") {
+    lines.push(`Als richtig markiert: ${q.correctOptions.map((i) => `${i}) ${q.options[i] ?? "?"}`).join("; ") || "keine"}`);
+  } else if (q.type === "numeric") {
+    lines.push(
+      `Ergebnis: ${q.numericAnswer !== null ? formatNumber(q.numericAnswer) : "–"}${q.unit ? ` ${q.unit}` : ""}`,
+      `Toleranz: ${q.numericTolerance ? `± ${formatNumber(q.numericTolerance)}` : "keine"}`,
+    );
+  } else if (q.type === "short_answer") {
+    lines.push(`Akzeptierte Antworten: ${q.acceptedAnswers.join(" | ") || "keine"}`);
+  }
+  if (q.modelSolution && q.modelSolution !== "–") lines.push(`Musterlösung:\n${q.modelSolution.trim()}`);
+  if (q.explanation) lines.push(`Erklärung:\n${q.explanation.trim()}`);
+  return lines.join("\n");
+}
+
+export function buildSolutionCheckTask(params: {
+  subjectName: string;
+  question: Question;
+  /** Antwort der lernenden Person als Text (leer = keine). */
+  answer: string;
+  /** Rückmeldung zur Bewertung, falls vorhanden. */
+  feedback: string;
+  /** Was laut der lernenden Person falsch ist (optional). */
+  request: string;
+}): string {
+  const q = params.question;
+  const choice = q.type === "single_choice" || q.type === "multiple_choice";
+  return [
+    params.subjectName ? `Fach: „${params.subjectName}“` : "",
+    `Aufgabenformat: ${TYPE_LABELS[q.type]} – ${q.points} ${q.points === 1 ? "Punkt" : "Punkte"}${q.source ? ` – Quelle: ${q.source}` : ""}`,
+    `<aufgabe>\n${q.prompt.trim()}\n</aufgabe>`,
+    choice ? `Antwortmöglichkeiten (0-basiert):\n${q.options.map((o, i) => `${i}) ${o}`).join("\n")}` : "",
+    `Hinterlegte Lösung:\n<loesung>\n${storedSolutionText(q)}\n</loesung>`,
+    `Antwort der lernenden Person: ${params.answer.trim() || "keine"}`,
+    params.feedback.trim() ? `Rückmeldung zur Bewertung: ${params.feedback.trim()}` : "",
+    params.request.trim()
+      ? `Was laut der lernenden Person falsch ist: ${params.request.trim()}`
+      : "Die lernende Person meint, dass die hinterlegte Lösung falsch ist, ohne genauer zu sagen, was.",
+    "Prüf die hinterlegte Lösung.",
   ]
     .filter(Boolean)
     .join("\n\n");

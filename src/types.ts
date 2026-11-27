@@ -75,6 +75,8 @@ export interface Question {
   source: string | null;
   /** true, wenn die Lösung aus dem hochgeladenen Material stammt. */
   solutionFromMaterial: boolean;
+  /** Die Lösung wurde nach „Lösung stimmt nicht?“ von Claude korrigiert. */
+  solutionFix?: { at: number; reason: string };
 }
 
 export type TestMode = "exact" | "generated";

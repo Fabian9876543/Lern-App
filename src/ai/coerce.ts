@@ -1,6 +1,14 @@
 import type { ErrorKind, MaterialRole } from "../types";
 import { ERROR_KINDS, EXAM_TASK_STATUSES } from "./schemas";
-import type { GeneratedExamAnalysis, GeneratedQuestion, GeneratedTest, GeneratedTopic, GradingResult, TopicAnalysis } from "./schemas";
+import type {
+  GeneratedExamAnalysis,
+  GeneratedQuestion,
+  GeneratedTest,
+  GeneratedTopic,
+  GradingResult,
+  SolutionCheckResult,
+  TopicAnalysis,
+} from "./schemas";
 
 /**
  * Liest KI-Antworten tolerant ein, wenn kein JSON-Schema erzwungen werden kann
@@ -181,6 +189,23 @@ export function coerceExamAnalysis(raw: unknown): GeneratedExamAnalysis {
       }))
       .filter((t) => t.label),
     notes: str(obj.notes).trim(),
+  };
+}
+
+/** Prüfung einer hinterlegten Lösung („Lösung stimmt nicht?“). */
+export function coerceSolutionCheck(raw: unknown): SolutionCheckResult {
+  const obj = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+  const flag = obj.solution_wrong;
+  return {
+    solution_wrong: flag === true || flag === "true",
+    reason: str(obj.reason).trim(),
+    correct_options: intList(obj.correct_options),
+    numeric_answer: num(obj.numeric_answer),
+    numeric_tolerance: num(obj.numeric_tolerance),
+    unit: strOrNull(obj.unit),
+    accepted_answers: strList(obj.accepted_answers),
+    model_solution: str(obj.model_solution ?? obj.solution).trim(),
+    explanation: str(obj.explanation).trim(),
   };
 }
 

@@ -4,6 +4,7 @@ import { ERROR_KIND_LABELS } from "../ai/prompts";
 import Feedback, { formatPoints } from "../components/Feedback";
 import Markdown from "../components/Markdown";
 import QuestionMeta from "../components/QuestionMeta";
+import SolutionCheck from "../components/SolutionCheck";
 import { attemptQuestions, formatDate, formatDuration, selfGrade, startAttempt, summarize } from "../lib/attempts";
 import { PRIORITY_LABELS, cancelExamJob, clearExamJob, useExamJob } from "../lib/examAnalysis";
 import { resultAnalysisKey, resultAnalysisOf, startResultAnalysis } from "../lib/resultAnalysis";
@@ -160,39 +161,67 @@ export default function ResultPage({ attemptId }: { attemptId: string }) {
 
       <section className="stack-sm">
         <h2>Alle Fragen im Detail</h2>
-        {questions.map((q, i) => {
-          const rec = attempt.answers[q.id];
-          const verdict = rec?.verdict;
-          return (
-            <details key={q.id} className={`card review-item review-${verdict ?? "open"}`} open={verdict !== "correct"}>
-              <summary>
-                <span className="q-number">{i + 1}</span>
-                <span className="q-summary">
-                  {verdict === "correct" ? "✓" : verdict === "partial" ? "½" : verdict === "wrong" ? "✗" : "?"}{" "}
-                  {q.topic}
-                </span>
-                <span className="muted small">
-                  {formatPoints(rec?.score ?? 0)}/{formatPoints(q.points)}
-                </span>
-              </summary>
-              <div className="stack-sm">
-                <QuestionMeta question={q} />
-                <Markdown className="prompt">{q.prompt}</Markdown>
-                <div className="solution-box your-answer">
-                  <div className="label">Deine Antwort</div>
-                  <YourAnswer question={q} record={rec} />
-                </div>
-                <Feedback
-                  question={q}
-                  record={rec ?? { response: {}, checked: true, score: 0, maxScore: q.points, verdict: null }}
-                  onSelfGrade={(v) => onSelfGrade(q, v)}
-                />
-              </div>
-            </details>
-          );
-        })}
+        {questions.map((q, i) => (
+          <ReviewItem
+            key={q.id}
+            index={i}
+            question={q}
+            record={attempt.answers[q.id]}
+            testId={test.id}
+            attemptId={attempt.id}
+            onSelfGrade={(v) => onSelfGrade(q, v)}
+          />
+        ))}
       </section>
     </div>
+  );
+}
+
+/** Eine Frage im Ergebnis. Nicht ganz richtige sind anfangs aufgeklappt – und bleiben es, wenn sie neu bewertet werden. */
+function ReviewItem({
+  index,
+  question: q,
+  record: rec,
+  testId,
+  attemptId,
+  onSelfGrade,
+}: {
+  index: number;
+  question: Question;
+  record?: AnswerRecord;
+  testId: string;
+  attemptId: string;
+  onSelfGrade: (v: Verdict) => void;
+}) {
+  const verdict = rec?.verdict;
+  const [initiallyOpen] = useState(verdict !== "correct");
+  return (
+    <details className={`card review-item review-${verdict ?? "open"}`} open={initiallyOpen}>
+      <summary>
+        <span className="q-number">{index + 1}</span>
+        <span className="q-summary">
+          {verdict === "correct" ? "✓" : verdict === "partial" ? "½" : verdict === "wrong" ? "✗" : "?"} {q.topic}
+        </span>
+        <span className="muted small">
+          {formatPoints(rec?.score ?? 0)}/{formatPoints(q.points)}
+        </span>
+      </summary>
+      <div className="stack-sm">
+        <QuestionMeta question={q} />
+        <Markdown className="prompt">{q.prompt}</Markdown>
+        <div className="solution-box your-answer">
+          <div className="label">Deine Antwort</div>
+          <YourAnswer question={q} record={rec} />
+        </div>
+        <Feedback
+          question={q}
+          record={rec ?? { response: {}, checked: true, score: 0, maxScore: q.points, verdict: null }}
+          onSelfGrade={onSelfGrade}
+        >
+          <SolutionCheck question={q} record={rec} testId={testId} attemptId={attemptId} />
+        </Feedback>
+      </div>
+    </details>
   );
 }
 

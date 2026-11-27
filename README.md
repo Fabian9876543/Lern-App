@@ -103,6 +103,12 @@ Beide Varianten entstehen aus demselben Code (`src/targets/artifact` bzw. `src/t
   Fehler (z. B. Fachbegriffe verwechselt, Rechenweg fehlt) und die Schwachstellen nach Priorität mit „So übst du“ und den
   betroffenen Fragen. Die Auswertung wird gespeichert (auf allen Geräten), lässt sich neu erstellen und fließt in den
   „Neuen Test zu meinen Fehlern“ ein. Wird der Test gelöscht, verschwindet sie mit.
+- **„Lösung stimmt nicht?“:** Unter der Rückmeldung zu jeder Frage (im Übungsmodus nach dem Prüfen und im Ergebnis).
+  Optional schreiben, was falsch ist – Claude rechnet die Aufgabe anhand des Materials (sonst mit Fachwissen) nach.
+  Stimmt die Lösung, erklärt Claude, warum. Ist sie falsch, zeigt die App „Bisher“ und „Korrigiert“ (richtige Antwort,
+  Musterlösung); erst mit „Korrektur übernehmen“ wird die Lösung im Test geändert und die Antwort neu bewertet
+  (Freitext von Claude, sonst sofort). Andere Durchläufe desselben Tests werden mitkorrigiert, soweit das ohne Claude
+  geht (Auswahl, Zahl, exakte Kurzantwort). Korrigierte Fragen tragen den Hinweis „von Claude korrigiert“ mit Grund.
 - „Neue Variante“: zum selben Material einen neuen Test mit anderen Aufgaben erzeugen
 - Fragen nachträglich bearbeiten, löschen oder eigene hinzufügen
 - **Lernplan pro Fach:** Prüfungsdatum und Lernzeit pro Wochentag angeben, Themen von Claude aus dem Material

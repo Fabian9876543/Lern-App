@@ -2639,6 +2639,20 @@ body:has(.mark-bar) .container {
   margin-bottom: 0;
 }
 
+/* ---------- „Lösung stimmt nicht?“ ---------- */
+.solution-check:not(.mark-fix) {
+  margin-top: -0.15rem;
+}
+.solution-diff .markdown > :first-child {
+  margin-top: 0.2rem;
+}
+.solution-diff .markdown > :last-child {
+  margin-bottom: 0;
+}
+.solution-fixed > * {
+  margin: 0;
+}
+
 /* ---------- Hinweise von Claude (Testseite, zugeklappt) ---------- */
 
 .notes-list {

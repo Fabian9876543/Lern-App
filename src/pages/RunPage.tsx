@@ -4,6 +4,7 @@ import AnswerInput from "../components/AnswerInput";
 import Feedback from "../components/Feedback";
 import Markdown from "../components/Markdown";
 import QuestionMeta from "../components/QuestionMeta";
+import SolutionCheck from "../components/SolutionCheck";
 import { confirmDialog } from "../components/Dialogs";
 import { attemptQuestions, evaluateAnswer, selfGrade } from "../lib/attempts";
 import { onAttemptFinished } from "../lib/plans";
@@ -303,7 +304,11 @@ function Runner({ attempt, test }: { attempt: Attempt; test: Test }) {
 
         {error && <p className="error-text">{error}</p>}
 
-        {locked && record && <Feedback question={question} record={record} onSelfGrade={onSelfGrade} />}
+        {locked && record && (
+          <Feedback question={question} record={record} onSelfGrade={onSelfGrade}>
+            <SolutionCheck question={question} record={record} testId={test.id} attemptId={attempt.id} />
+          </Feedback>
+        )}
       </article>
 
       <div className="run-actions">

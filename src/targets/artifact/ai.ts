@@ -1,5 +1,12 @@
 import { useSyncExternalStore } from "react";
-import { coerceExamAnalysis, coerceGrading, coerceMaterialName, coerceNoteFix, coerceTopicAnalysis } from "../../ai/coerce";
+import {
+  coerceExamAnalysis,
+  coerceGrading,
+  coerceMaterialName,
+  coerceNoteFix,
+  coerceSolutionCheck,
+  coerceTopicAnalysis,
+} from "../../ai/coerce";
 import { countJsonKey, countQuestions, describeCorrectAnswer, normalizeQuestions, orderQuestions } from "../../ai/normalize";
 import { CONTINUATION_RESERVE, generateInParts, partsNote } from "../../ai/rounds";
 import {
@@ -22,6 +29,9 @@ import {
   buildNoteFixTask,
   NOTE_FIX_JSON_FORMAT,
   NOTE_FIX_SYSTEM_PROMPT,
+  SOLUTION_CHECK_JSON_FORMAT,
+  SOLUTION_CHECK_SYSTEM_PROMPT,
+  buildSolutionCheckTask,
   buildExamAnalysisInstruction,
   EXAM_ANALYSIS_JSON_FORMAT,
   EXAM_ANALYSIS_SYSTEM_PROMPT,
@@ -35,7 +45,7 @@ import {
   splitTranscript,
   transcribePrompt,
 } from "../../ai/prompts";
-import type { GeneratedExamAnalysis, TopicAnalysis } from "../../ai/schemas";
+import type { GeneratedExamAnalysis, SolutionCheckResult, TopicAnalysis } from "../../ai/schemas";
 import { ROLE_LABELS } from "../../lib/files";
 import { verdictFromScore } from "../../lib/grading";
 import { newId } from "../../lib/ids";
@@ -57,6 +67,7 @@ import type {
   NoteFix,
   NoteFixParams,
   ResultAnalysisParams,
+  SolutionCheckParams,
   GenerateParams,
   GenerationProgress,
   MaterialNameParams,
@@ -563,6 +574,30 @@ export async function fixNotePassage(params: NoteFixParams): Promise<NoteFix> {
   const fix = coerceNoteFix(raw);
   if (!fix.reason && !fix.old.trim()) throw new AiResponseError("Claude hat keinen Vorschlag geliefert. Bitte erneut versuchen.");
   return { old: fix.old, replacement: fix.new, reason: fix.reason };
+}
+
+// ---------- Lösung einer Aufgabe prüfen ----------
+
+export async function checkSolution(params: SolutionCheckParams): Promise<SolutionCheckResult> {
+  const { materials, signal, question } = params;
+  const sample = await requireSample();
+  const prepared = await prepareMaterials(sample, materials, { signal });
+  const { prompt } = await promptWithMaterials(
+    sample,
+    prepared,
+    (section) => `${SOLUTION_CHECK_SYSTEM_PROMPT}\n\n${SOLUTION_CHECK_JSON_FORMAT}\n\n${section}${buildSolutionCheckTask(params)}`,
+    { kind: "relevance", query: `${question.source ?? ""} ${question.topic} ${question.prompt} ${params.request}` },
+  );
+  await checkLimits(sample, prompt, prepared.images.length);
+  const raw = await sample.json(prompt, {
+    modelTier: getSettings().generationTier,
+    images: prepared.images.length ? prepared.images : undefined,
+    cache: false,
+    signal,
+  });
+  const check = coerceSolutionCheck(raw);
+  if (!check.reason && !check.solution_wrong) throw new AiResponseError("Claude hat keine Prüfung geliefert. Bitte erneut versuchen.");
+  return check;
 }
 
 // ---------- Markierte Stelle erklären ----------
