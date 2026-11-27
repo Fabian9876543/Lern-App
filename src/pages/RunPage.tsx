@@ -44,7 +44,7 @@ function Runner({ attempt, test }: { attempt: Attempt; test: Test }) {
   const isExam = attempt.mode === "exam";
 
   const [draft, setDraft] = useState<AnswerResponse>(record?.response ?? {});
-  const [showHint, setShowHint] = useState(false);
+  const [showHint, setShowHint] = useState(!!record?.usedHint);
   const [checking, setChecking] = useState(false);
   const [submitting, setSubmitting] = useState<{ done: number; total: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -53,13 +53,17 @@ function Runner({ attempt, test }: { attempt: Attempt; test: Test }) {
   /** Stand, den dieses Gerät zuletzt gespeichert bzw. geladen hat (für den Abgleich mit anderen Geräten). */
   const baseRef = useRef<AnswerResponse>(record?.response ?? {});
 
-  // Beim Wechsel der Frage den gespeicherten Stand laden.
-  useEffect(() => {
-    const stored = attempt.answers[question?.id ?? ""]?.response ?? {};
-    baseRef.current = stored;
-    setDraft(stored);
-    setShowHint(!!attempt.answers[question?.id ?? ""]?.usedHint);
+  // Beim Wechsel der Frage den gespeicherten Stand laden – gleich beim Zeichnen, sonst steht kurz noch die
+  // Antwort der vorigen Frage im Feld, und was man in diesem Moment eingibt, geht verloren.
+  const [shownId, setShownId] = useState(question?.id);
+  if (shownId !== question?.id) {
+    setShownId(question?.id);
+    setDraft(record?.response ?? {});
+    setShowHint(!!record?.usedHint);
     setError(null);
+  }
+  useEffect(() => {
+    baseRef.current = attempt.answers[question?.id ?? ""]?.response ?? {};
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [question?.id]);
 
